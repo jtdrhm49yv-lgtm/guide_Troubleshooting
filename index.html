@@ -1,0 +1,1114 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0f172a">
+<title>Dépannage DP1500i</title>
+<style>
+:root{
+  /* Couleurs des 6 bus reprises du schéma Sandvik 5_Bus_structure_SW_6 */
+  --bus-bb:#2f6df6;      /* CAN BB  - bleu */
+  --bus-prg:#c026d3;     /* CAN PRG - magenta */
+  --bus-hmi:#f59e0b;     /* CAN HMI - orange */
+  --bus-j1939:#eab308;   /* CAN J1939 - jaune */
+  --bus-rs232:#16a34a;   /* RS232 - vert */
+  --bus-eth:#1e293b;     /* Ethernet - noir/sombre */
+  /* Ardoise atelier */
+  --bg:#0f172a; --bg2:#1e293b; --card:#1c2840; --card2:#243150;
+  --line:#334155; --txt:#e2e8f0; --txt-dim:#94a3b8; --txt-faint:#64748b;
+  --accent:#38bdf8;
+  /* Sévérité */
+  --crit:#ef4444; --major:#f59e0b; --minor:#38bdf8;
+  /* Sources */
+  --src-doc:#3b82f6; --src-field:#10b981; --src-std:#a855f7;
+  --r:14px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{background:var(--bg);color:var(--txt);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  font-size:16px;line-height:1.45;-webkit-text-size-adjust:100%}
+body{padding-bottom:env(safe-area-inset-bottom)}
+.tnum{font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
+
+/* ---------- Header ---------- */
+header{position:sticky;top:0;z-index:50;background:rgba(15,23,42,.92);
+  backdrop-filter:blur(12px);border-bottom:1px solid var(--line);
+  padding:calc(env(safe-area-inset-top) + 12px) 16px 12px}
+.h-row{display:flex;align-items:center;gap:12px}
+.h-logo{width:38px;height:38px;border-radius:10px;flex:none;
+  background:linear-gradient(135deg,var(--bus-bb),var(--bus-prg));
+  display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;color:#fff;
+  box-shadow:0 2px 10px rgba(47,109,246,.35)}
+.h-title{font-size:17px;font-weight:700;letter-spacing:-.01em}
+.h-sub{font-size:12px;color:var(--txt-dim);letter-spacing:.02em}
+.machine-pill{margin-left:auto;font-size:12px;font-weight:600;color:var(--accent);
+  background:var(--card);border:1px solid var(--line);padding:6px 11px;border-radius:999px;
+  display:flex;align-items:center;gap:6px}
+.machine-pill .dot{width:7px;height:7px;border-radius:50%;background:var(--src-field);box-shadow:0 0 6px var(--src-field)}
+
+/* ---------- Search ---------- */
+.search-wrap{padding:12px 16px 4px}
+.search{display:flex;align-items:center;gap:10px;background:var(--card);
+  border:1px solid var(--line);border-radius:12px;padding:11px 14px}
+.search:focus-within{border-color:var(--accent)}
+.search svg{flex:none;color:var(--txt-faint)}
+.search input{flex:1;background:none;border:none;outline:none;color:var(--txt);font-size:16px}
+.search input::placeholder{color:var(--txt-faint)}
+
+/* ---------- Tabs (entry points) ---------- */
+.tabs{display:flex;gap:8px;padding:12px 16px;overflow-x:auto;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab{flex:none;display:flex;align-items:center;gap:7px;padding:9px 14px;border-radius:11px;
+  background:var(--card);border:1px solid var(--line);color:var(--txt-dim);
+  font-size:13px;font-weight:600;cursor:pointer;transition:.15s;white-space:nowrap}
+.tab.active{background:var(--card2);border-color:var(--accent);color:var(--txt)}
+.tab .ic{font-size:15px}
+
+/* ---------- Sections ---------- */
+main{padding:4px 16px 40px}
+.view{display:none}
+.view.active{display:block;animation:fade .25s ease}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.sec-head{display:flex;align-items:baseline;gap:10px;margin:18px 2px 12px}
+.sec-head h2{font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--txt-dim)}
+.sec-head .count{font-size:12px;color:var(--txt-faint)}
+.intro{font-size:13.5px;color:var(--txt-dim);margin:2px 2px 14px;line-height:1.5}
+
+/* ---------- Cards generic ---------- */
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);
+  padding:15px;margin-bottom:11px;cursor:pointer;transition:.15s}
+.card:active{transform:scale(.99);background:var(--card2)}
+.card.flat{cursor:default}
+.card.flat:active{transform:none;background:var(--card)}
+.card-top{display:flex;align-items:center;gap:11px}
+.tag{flex:none;font-weight:800;font-size:13px;padding:5px 9px;border-radius:8px;
+  background:var(--bg2);border:1px solid var(--line);letter-spacing:.02em}
+.card-title{font-size:15.5px;font-weight:650;letter-spacing:-.01em;flex:1}
+.card-meta{font-size:12.5px;color:var(--txt-dim);margin-top:3px}
+.chev{color:var(--txt-faint);flex:none}
+
+/* badges */
+.badge{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:700;
+  padding:3px 7px;border-radius:6px;letter-spacing:.03em;text-transform:uppercase}
+.b-doc{background:rgba(59,130,246,.15);color:#93c5fd;border:1px solid rgba(59,130,246,.3)}
+.b-field{background:rgba(16,185,129,.15);color:#6ee7b7;border:1px solid rgba(16,185,129,.3)}
+.b-std{background:rgba(168,85,247,.15);color:#d8b4fe;border:1px solid rgba(168,85,247,.3)}
+.sev{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;padding:3px 8px;border-radius:6px}
+.s-crit{background:rgba(239,68,68,.16);color:#fca5a5}
+.s-major{background:rgba(245,158,11,.16);color:#fcd34d}
+.s-minor{background:rgba(56,189,248,.16);color:#7dd3fc}
+
+/* bus color dots */
+.bus-dot{display:inline-block;width:10px;height:10px;border-radius:50%;flex:none}
+.loc-pill{font-size:11px;font-weight:600;color:var(--txt-dim);background:var(--bg2);
+  border:1px solid var(--line);padding:2px 8px;border-radius:999px}
+
+/* ---------- Bus legend ---------- */
+.bus-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:8px}
+.bus-item{display:flex;align-items:center;gap:10px;background:var(--card);
+  border:1px solid var(--line);border-radius:11px;padding:11px 13px}
+.bus-line{width:22px;height:4px;border-radius:2px;flex:none}
+.bus-name{font-size:13px;font-weight:700}
+.bus-desc{font-size:11px;color:var(--txt-dim)}
+
+/* ---------- Detail panel (sheet) ---------- */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:90;opacity:0;
+  pointer-events:none;transition:.2s}
+.overlay.open{opacity:1;pointer-events:auto}
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:100;max-height:92vh;
+  background:var(--bg2);border-radius:20px 20px 0 0;border-top:1px solid var(--line);
+  transform:translateY(100%);transition:transform .28s cubic-bezier(.32,.72,0,1);
+  display:flex;flex-direction:column;padding-bottom:env(safe-area-inset-bottom)}
+.sheet.open{transform:translateY(0)}
+.sheet-grab{width:38px;height:5px;border-radius:3px;background:var(--line);margin:10px auto 4px;flex:none}
+.sheet-head{padding:8px 18px 14px;border-bottom:1px solid var(--line)}
+.sheet-head .st-tag{font-size:13px}
+.sheet-body{overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px 18px 28px}
+.sheet h3{font-size:20px;font-weight:750;letter-spacing:-.02em;margin:6px 0 4px;line-height:1.2}
+.sheet .desc{font-size:14px;color:var(--txt-dim);margin-bottom:6px}
+
+.block{margin-top:20px}
+.block-label{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--txt-faint);margin-bottom:9px}
+
+/* causes list */
+.cause{background:var(--card);border:1px solid var(--line);border-radius:11px;
+  padding:12px 13px;margin-bottom:9px}
+.cause-head{display:flex;align-items:center;gap:9px}
+.cause-num{width:22px;height:22px;border-radius:7px;background:var(--bg2);border:1px solid var(--line);
+  display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;
+  color:var(--accent);flex:none}
+.cause-name{font-size:14.5px;font-weight:650;flex:1}
+.cause-freq{font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:5px;
+  background:rgba(245,158,11,.14);color:#fcd34d}
+.cause-freq.f-high{background:rgba(239,68,68,.14);color:#fca5a5}
+.cause-freq.f-low{background:rgba(100,116,139,.18);color:var(--txt-dim)}
+.cause-check{font-size:13px;color:var(--txt-dim);margin-top:7px;padding-left:2px;line-height:1.5}
+.cause-part{display:inline-flex;align-items:center;gap:5px;margin-top:8px;font-size:11.5px;
+  font-weight:600;color:#7dd3fc;background:rgba(56,189,248,.1);
+  border:1px solid rgba(56,189,248,.22);padding:3px 9px;border-radius:7px}
+
+/* guided steps */
+.step{display:flex;gap:12px;margin-bottom:4px}
+.step-rail{display:flex;flex-direction:column;align-items:center;flex:none}
+.step-num{width:26px;height:26px;border-radius:50%;background:var(--card2);
+  border:1.5px solid var(--accent);color:var(--accent);
+  display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800}
+.step-line{width:2px;flex:1;background:var(--line);margin:3px 0}
+.step-body{padding-bottom:16px;flex:1}
+.step-ctrl{font-size:14.5px;font-weight:600;line-height:1.4}
+.step-row{display:flex;flex-wrap:wrap;gap:7px;margin-top:8px}
+.step-chip{font-size:11.5px;display:inline-flex;align-items:center;gap:5px;
+  background:var(--card);border:1px solid var(--line);padding:4px 9px;border-radius:7px;color:var(--txt-dim)}
+.step-chip b{color:var(--txt);font-weight:650}
+.step-branch{display:flex;gap:8px;margin-top:9px;font-size:12.5px}
+.branch{flex:1;border-radius:9px;padding:8px 10px;line-height:1.35}
+.branch.ok{background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.25);color:#a7f3d0}
+.branch.nok{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.25);color:#fca5a5}
+.branch b{display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px;opacity:.8}
+
+/* info note */
+.note{display:flex;gap:9px;background:rgba(56,189,248,.07);border:1px solid rgba(56,189,248,.2);
+  border-radius:10px;padding:11px 12px;font-size:12.5px;color:#bae6fd;line-height:1.5;margin-top:14px}
+.note svg{flex:none;margin-top:1px}
+
+/* feedback bar */
+.fb-bar{display:flex;gap:9px;margin-top:22px}
+.fb-btn{flex:1;padding:13px;border-radius:11px;border:none;font-size:14px;font-weight:700;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px}
+.fb-fixed{background:var(--src-field);color:#04231a}
+.fb-gmao{background:var(--card2);color:var(--txt);border:1px solid var(--line)}
+
+.empty{text-align:center;color:var(--txt-faint);padding:50px 20px;font-size:14px}
+.empty .big{font-size:34px;margin-bottom:10px;opacity:.5}
+
+/* photo jointe */
+.photo-btn{display:flex;align-items:center;justify-content:center;gap:8px;
+  width:100%;padding:13px;border-radius:11px;cursor:pointer;font-size:14px;font-weight:650;
+  background:var(--card);border:1.5px dashed var(--line);color:var(--txt-dim)}
+.photo-btn:active{background:var(--card2)}
+.photo-grid{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.photo-thumb{position:relative;width:72px;height:72px;border-radius:9px;overflow:hidden;border:1px solid var(--line)}
+.photo-thumb img{width:100%;height:100%;object-fit:cover;cursor:pointer}
+.photo-del{position:absolute;top:2px;right:2px;width:20px;height:20px;border-radius:50%;
+  background:rgba(0,0,0,.65);color:#fff;border:none;font-size:14px;line-height:1;cursor:pointer}
+.photo-hint{font-size:11px;color:var(--txt-faint);margin-top:8px;line-height:1.4}
+.photo-full{position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:200;
+  display:flex;align-items:center;justify-content:center;padding:20px}
+.photo-full img{max-width:100%;max-height:100%;border-radius:8px}
+
+/* assistant */
+.asst-head{display:flex;align-items:center;gap:10px;margin:14px 2px 4px}
+.asst-title{font-size:18px;font-weight:750;letter-spacing:-.02em}
+.asst-mode{margin-left:auto;font-size:11px;font-weight:700;padding:4px 9px;border-radius:999px}
+.asst-mode.off{background:rgba(100,116,139,.18);color:var(--txt-dim)}
+.asst-mode.on{background:rgba(16,185,129,.16);color:#6ee7b7}
+.asst-chat{display:flex;flex-direction:column;gap:12px;margin:14px 0;min-height:60px}
+.msg-user{align-self:flex-end;max-width:85%;background:var(--bus-bb);color:#fff;
+  padding:10px 13px;border-radius:14px 14px 4px 14px;font-size:14px;line-height:1.4}
+.msg-ai{align-self:flex-start;max-width:92%;background:var(--card);border:1px solid var(--line);
+  padding:13px 14px;border-radius:14px 14px 14px 4px;font-size:14px;line-height:1.5}
+.msg-ai .ai-label{font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
+  color:var(--accent);margin-bottom:7px;display:flex;align-items:center;gap:5px}
+.ai-result{background:var(--bg2);border:1px solid var(--line);border-radius:10px;
+  padding:11px 12px;margin-top:9px;cursor:pointer}
+.ai-result:active{background:var(--card2)}
+.ai-result-top{display:flex;align-items:center;gap:8px}
+.ai-score{font-size:10px;font-weight:800;padding:2px 7px;border-radius:5px;flex:none;
+  background:rgba(56,189,248,.16);color:#7dd3fc}
+.ai-result-name{font-size:13.5px;font-weight:650;flex:1}
+.ai-result-why{font-size:12px;color:var(--txt-dim);margin-top:6px;line-height:1.4}
+.ai-empty{font-size:13px;color:var(--txt-dim);line-height:1.5}
+.asst-input{display:flex;gap:9px;align-items:flex-end;position:sticky;bottom:0;
+  background:var(--bg);padding:10px 0 4px}
+.asst-input textarea{flex:1;background:var(--card);border:1px solid var(--line);border-radius:12px;
+  padding:11px 13px;color:var(--txt);font-size:15px;font-family:inherit;resize:none;outline:none}
+.asst-input textarea:focus-within,.asst-input textarea:focus{border-color:var(--accent)}
+.asst-send{flex:none;width:46px;height:46px;border-radius:12px;border:none;cursor:pointer;
+  background:var(--bus-bb);color:#fff;display:flex;align-items:center;justify-content:center}
+.asst-send:active{opacity:.8}
+.asst-settings{margin-top:16px;border-top:1px solid var(--line);padding-top:14px}
+.asst-cfg-btn{width:100%;background:none;border:1px dashed var(--line);color:var(--txt-dim);
+  padding:10px;border-radius:10px;font-size:12.5px;cursor:pointer}
+.asst-cfg{display:none;margin-top:11px;background:var(--card);border:1px solid var(--line);
+  border-radius:11px;padding:13px}
+.asst-cfg.open{display:block}
+.asst-cfg p{font-size:12.5px;color:var(--txt-dim);line-height:1.5;margin-bottom:10px}
+.asst-cfg input{width:100%;background:var(--bg2);border:1px solid var(--line);border-radius:9px;
+  padding:10px 12px;color:var(--txt);font-size:14px;outline:none;margin-bottom:9px}
+.asst-cfg-save{width:100%;background:var(--card2);border:1px solid var(--line);color:var(--txt);
+  padding:10px;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer}
+.asst-typing{font-size:13px;color:var(--txt-faint);font-style:italic}
+
+/* source legend footer */
+.src-legend{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;
+  padding:18px 16px 8px;border-top:1px solid var(--line);margin-top:24px}
+.src-legend span{font-size:11px;color:var(--txt-dim);display:inline-flex;align-items:center;gap:5px}
+.foot{text-align:center;font-size:11px;color:var(--txt-faint);padding:6px 16px 24px;line-height:1.6}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="h-row">
+    <div class="h-logo">DPi</div>
+    <div>
+      <div class="h-title">Dépannage DP1500i</div>
+      <div class="h-sub">Électricité &amp; Électronique · v0.1</div>
+    </div>
+    <div class="machine-pill"><span class="dot"></span>DP1500i</div>
+  </div>
+</header>
+
+<div class="search-wrap">
+  <div class="search">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+    <input id="search" type="text" placeholder="Code, panne, repère (Y125, fuse 17…) — fautes tolérées" autocomplete="off">
+  </div>
+</div>
+
+<div class="tabs" id="tabs">
+  <div class="tab active" data-view="assistant"><span class="ic">💬</span>Assistant</div>
+  <div class="tab" data-view="codes"><span class="ic">⚠️</span>Codes écran</div>
+  <div class="tab" data-view="symptomes"><span class="ic">🔍</span>Symptômes</div>
+  <div class="tab" data-view="modules"><span class="ic">🔧</span>Modules</div>
+  <div class="tab" data-view="bus"><span class="ic">🔌</span>Réseaux bus</div>
+  <div class="tab" data-view="composants"><span class="ic">🧩</span>Composants</div>
+</div>
+
+<main>
+  <!-- ASSISTANT -->
+  <section class="view active" id="view-assistant">
+    <div class="asst-head">
+      <div class="asst-title">Assistant de dépannage</div>
+      <div class="asst-mode" id="asst-mode"></div>
+    </div>
+    <p class="intro">Décris la panne en langage normal : ce que tu vois à l'écran, ce qui ne marche pas. L'assistant cherche dans toute la base (pannes, composants, modules) et propose les causes probables.</p>
+    <div id="asst-chat" class="asst-chat"></div>
+    <div class="asst-input">
+      <textarea id="asst-text" rows="2" placeholder="Ex : le feed ne recule plus, ou : stab error quand je tourne, ou : pas de courant au démarrage…"></textarea>
+      <button class="asst-send" onclick="askAssistant()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
+      </button>
+    </div>
+    <div class="asst-settings">
+      <button class="asst-cfg-btn" onclick="toggleApiCfg()">⚙️ Activer l'assistant IA en ligne (avancé)</button>
+      <div id="asst-cfg" class="asst-cfg">
+        <p>L'assistant fonctionne déjà <b>hors ligne</b> (recherche intelligente locale). Pour activer le raisonnement IA en ligne (plus fin, nécessite internet), colle ta clé API Anthropic ci-dessous. Tu pourras l'obtenir plus tard — Gora te guidera.</p>
+        <input id="asst-key" type="password" placeholder="Clé API (laisse vide pour le mode hors-ligne)">
+        <button class="asst-cfg-save" onclick="saveApiKey()">Enregistrer la clé</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- CODES ÉCRAN -->
+  <section class="view" id="view-codes">
+    <p class="intro">Codes affichés à l'écran du système de forage. Touche un code pour la procédure de diagnostic guidée.</p>
+    <div class="sec-head"><h2>Fault codes drilling</h2><span class="count" id="codes-count"></span></div>
+    <div id="codes-list"></div>
+  </section>
+
+  <!-- SYMPTÔMES -->
+  <section class="view" id="view-symptomes">
+    <p class="intro">Pannes sans code défaut : décris ce que tu observes pour lancer un diagnostic guidé pas-à-pas.</p>
+    <div class="sec-head"><h2>Symptômes électroniques</h2><span class="count" id="symp-count"></span></div>
+    <div id="symp-list"></div>
+  </section>
+
+  <!-- MODULES -->
+  <section class="view" id="view-modules">
+    <p class="intro">Les 32 modules du bus PANTERA DPi : repère, emplacement et réseau de raccordement. Source : schéma Sandvik bus structure.</p>
+    <div class="sec-head"><h2>Modules &amp; emplacements</h2><span class="count" id="mod-count"></span></div>
+    <div id="mod-list"></div>
+  </section>
+
+  <!-- BUS -->
+  <section class="view" id="view-bus">
+    <p class="intro">Les 6 réseaux de communication du DP1500i, par code couleur officiel du schéma. Cible un défaut : un problème sur le J1939 oriente vers le moteur.</p>
+    <div class="sec-head"><h2>Réseaux de communication</h2><span class="count">6 bus</span></div>
+    <div class="bus-grid" id="bus-list"></div>
+    <div class="note">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+      <div>La valeur de résistance de terminaison du bus CAN (≈120 Ω par terminator, ≈60 Ω mesuré bus entier) est le <b>standard CAN</b>, non confirmé noir sur blanc dans la doc fournie. À vérifier sur ton schéma de circuit avant de l'utiliser comme référence terrain.</div>
+    </div>
+  </section>
+
+  <!-- COMPOSANTS -->
+  <section class="view" id="view-composants">
+    <p class="intro">Repères réels des composants confirmés par les schémas et photos Sandvik. Sert de base pour analyser une nouvelle panne : trouve le repère, puis sa fonction et sa localisation.</p>
+    <div class="sec-head"><h2>Composants &amp; repères</h2><span class="count" id="comp-count"></span></div>
+    <div id="comp-list"></div>
+  </section>
+
+  <div class="src-legend">
+    <span><span class="badge b-doc">Doc</span> Manuel Sandvik</span>
+    <span><span class="badge b-field">Terrain</span> Retour d'expérience</span>
+    <span><span class="badge b-std">Std</span> Standard à confirmer</span>
+  </div>
+  <p class="foot">Sources : 5_Bus_structure_SW_6 · ED LINKED (schéma câbles) · DPi hydraulics · New Features<br>Module Électricité &amp; Électronique — moteur Caterpillar, compresseur &amp; water injection à venir</p>
+</main>
+
+<!-- Detail sheet -->
+<div class="overlay" id="overlay" onclick="closeSheet()"></div>
+<div class="sheet" id="sheet">
+  <div class="sheet-grab"></div>
+  <div class="sheet-head" id="sheet-head"></div>
+  <div class="sheet-body" id="sheet-body"></div>
+</div>
+
+<script>
+/* ============================================================
+   DONNÉES — Module Électricité & Électronique DP1500i
+   Source des modules/bus : 5_Bus_structure_SW_6.pdf (Sandvik)
+   Source fault codes : retour d'expérience terrain (Gora)
+   ============================================================ */
+
+const BUS = [
+  {id:"bb",   name:"CAN BB",    color:"var(--bus-bb)",    desc:"Backbone — épine dorsale, relie SM/FCC/RCC/DM"},
+  {id:"prg",  name:"CAN PRG",   color:"var(--bus-prg)",   desc:"Programming — socket de programmation"},
+  {id:"hmi",  name:"CAN HMI",   color:"var(--bus-hmi)",   desc:"Interface homme-machine — écrans, panneaux"},
+  {id:"j1939",name:"CAN J1939", color:"var(--bus-j1939)", desc:"Moteur diesel — ECM / PETU"},
+  {id:"rs232",name:"RS232",     color:"var(--bus-rs232)", desc:"Liaison série — GNSS / data transfer"},
+  {id:"eth",  name:"Ethernet",  color:"#64748b",          desc:"Réseau haut débit — TIM3D / calcul"}
+];
+
+/* Composants & repères réels — confirmés par schémas/photos Sandvik
+   cat: catégorie · src: doc/field/std */
+const COMPOSANTS = [
+  {ref:"F17", nom:"Fusible ACU + LAN switch", cat:"Électrique", val:"6A", loc:"MRJB",
+   desc:"Alimente la branche optionnelle ACU + LAN switch (câble 170). Option non utilisée chez Gora → isolable. Source : ED LINKED.", src:"doc"},
+  {ref:"MRJB", nom:"Main Relay Junction Box", cat:"Électrique", val:"", loc:"Carrier",
+   desc:"Boîtier des relais et fusibles principaux (K1, K2.1, K2.2, bornier X1, fusibles F10-F19). Source : photo Features p.16-17.", src:"doc"},
+  {ref:"DMJB", nom:"DM Junction Box", cat:"Électrique", val:"", loc:"Boom",
+   desc:"Junction box du Drilling Master, raccorde les valves de forage (Rexroth). Source : photo Features p.28.", src:"doc"},
+  {ref:"K10", nom:"Relais temporisé (Time relay)", cat:"Électrique", val:"réglages usine", loc:"ESG/MRJB",
+   desc:"Relais temporisé lié au circuit d'alimentation / emergency stop. Source : ED LINKED.", src:"doc"},
+  {ref:"K1 / K2.1 / K2.2", nom:"Relais principaux", cat:"Électrique", val:"", loc:"MRJB",
+   desc:"Relais de puissance dans le MRJB. Source : photo Features p.17.", src:"doc"},
+  {ref:"B125P", nom:"Transducteur pression stabilisateur", cat:"Stabilisateur", val:"", loc:"Bloc 33.01",
+   desc:"Capteur de pression du bloc stabilisateur (33). Source : DPi hydraulics + photo Features p.23.", src:"doc"},
+  {ref:"Y125", nom:"Valve décharge proportionnelle stabilisateur", cat:"Stabilisateur", val:"à calibrer", loc:"Bloc 33.04",
+   desc:"Valve de décharge proportionnelle, doit être calibrée. Ta « valve 125 ». Source : DPi hydraulics.", src:"doc"},
+  {ref:"Y126", nom:"Valve directionnelle 4/2 stabilisateur", cat:"Stabilisateur", val:"", loc:"Bloc 33.02",
+   desc:"Désactivée quand le contrôle de pression stabilisateur est actif. Source : DPi hydraulics.", src:"doc"},
+  {ref:"Filter bypass switch", nom:"Contact bypass filtre stabilisateur", cat:"Stabilisateur", val:"", loc:"Filtre stab.",
+   desc:"Déclenche si le filtre stabilisateur se colmate. Source : photo Features p.23.", src:"doc"},
+  {ref:"Y3A", nom:"Feed pilote — forward (FW)", cat:"Feed", val:"à calibrer", loc:"Bloc feed .15",
+   desc:"Valve pilote électro-hydraulique avance avant. Source : DPi hydraulics + ED LINKED.", src:"doc"},
+  {ref:"Y3B", nom:"Feed pilote — backward (BW)", cat:"Feed", val:"à calibrer · R° à confirmer", loc:"Bloc feed .16",
+   desc:"Valve pilote électro-hydraulique recul. Mesurer sa résistance, comparer à Y3A. Source : DPi hydraulics + ED LINKED.", src:"doc"},
+  {ref:"Y11", nom:"Valve pression proportionnelle feed", cat:"Feed", val:"à calibrer", loc:"Bloc feed .14",
+   desc:"Contrôle la pression max de feed dans les deux sens. Source : DPi hydraulics.", src:"doc"},
+  {ref:"Y10", nom:"Flushing valve", cat:"Flushing", val:"", loc:"Bloc flushing",
+   desc:"Électrovanne de flushing (air de balayage). Source : photo Features p.25.", src:"doc"},
+  {ref:"Y1", nom:"Percussion on/off valve 4/2", cat:"Percussion", val:"", loc:"Bloc percussion .10",
+   desc:"Valve on/off d'admission percussion. Source : DPi hydraulics.", src:"doc"},
+  {ref:"B1P", nom:"Transducteur pression percussion", cat:"Percussion", val:"", loc:"Bloc percussion .11",
+   desc:"Capteur de pression percussion. Source : DPi hydraulics.", src:"doc"},
+  {ref:"B210P.1", nom:"Moniteur pression eau (water injection)", cat:"Water injection", val:"", loc:"Bloc eau",
+   desc:"Capteur de pression du système d'injection d'eau. Source : photo Features p.20.", src:"doc"},
+  {ref:"Hydr. oil level sensor", nom:"Capteur niveau huile hydraulique", cat:"Hydraulique", val:"", loc:"Réservoir hydr.",
+   desc:"Capteur de niveau d'huile hydraulique. Source : photo Features p.19.", src:"doc"},
+  {ref:"Compressor air intake valve", nom:"Valve d'admission d'air compresseur", cat:"Compresseur", val:"", loc:"Compresseur",
+   desc:"Valve d'admission d'air (PK valve Sandvik). Source : photo Features p.24.", src:"doc"},
+  {ref:"DM", nom:"Drilling Master", cat:"Modules", val:"alim BG01110402", loc:"Boom",
+   desc:"Contrôleur de forage. Sa chute coupe le forage. Source : ED LINKED + 5_Bus_structure.", src:"doc"},
+  {ref:"ACU", nom:"Advanced Calculation Unit", cat:"Modules", val:"OPTION non utilisée", loc:"Cabin",
+   desc:"Unité de calcul avancé — option non utilisée chez Gora, alimentée par F17. Source : ED LINKED.", src:"doc"}
+];
+
+
+/* 32 modules — repère / nom / emplacement / bus principal / n° schéma
+   Extraits de la légende numérotée du PDF (page 7) */
+const MODULES = [
+  {ref:"SHI", n:1,  name:"Sensor Horizontal Inclination", code:"+B132G",  loc:"Boom",    bus:["hmi"]},
+  {ref:"SFI", n:2,  name:"Sensor Feed Inclination",       code:"+B132G.2",loc:"Boom",    bus:["hmi"]},
+  {ref:"DM",  n:3,  name:"Drilling Master",               code:"",        loc:"Boom",    bus:["bb","hmi"]},
+  {ref:"DMJB-Ex",n:4,name:"DM Junction Box Ex",           code:"",        loc:"Boom",    bus:["bb"]},
+  {ref:"DMJB-St",n:5,name:"DM Junction Box St",           code:"",        loc:"Boom",    bus:["bb"]},
+  {ref:"SDP", n:6,  name:"Sensor Drifter Position",       code:"+B3G",    loc:"Boom",    bus:["hmi"]},
+  {ref:"SFE", n:7,  name:"Sensor Feed Extension",         code:"-B103G",  loc:"Boom",    bus:["hmi"]},
+  {ref:"SBI", n:8,  name:"Sensor Boom Inclination",       code:"-B26G",   loc:"Carrier", bus:["hmi"]},
+  {ref:"SZP", n:9,  name:"Sensor Zoom Position",          code:"-B101G",  loc:"Carrier", bus:["hmi"]},
+  {ref:"SBA", n:10, name:"Sensor Boom Turn Angle",        code:"+B20G",   loc:"Carrier", bus:["hmi"]},
+  {ref:"SCI", n:11, name:"Sensor Carrier Inclination",    code:"+B336G",  loc:"Carrier", bus:["hmi"]},
+  {ref:"FCC", n:12, name:"Front Carrier Controller",      code:"",        loc:"Carrier", bus:["bb","hmi","j1939"]},
+  {ref:"FCJB-St",n:13,name:"FCC Junction Box St",         code:"",        loc:"Carrier", bus:["bb"]},
+  {ref:"FCJB-Ex",n:14,name:"FCC Junction Box Ex",         code:"",        loc:"Carrier", bus:["bb"]},
+  {ref:"RCC", n:15, name:"Rear Carrier Controller",       code:"",        loc:"Carrier", bus:["bb","j1939"]},
+  {ref:"RCJB-St",n:16,name:"RCC Junction Box St",         code:"",        loc:"Carrier", bus:["bb"]},
+  {ref:"ECM", n:17, name:"Engine Control Module",         code:"",        loc:"Carrier", bus:["j1939"]},
+  {ref:"SGC", n:18, name:"GPS Compass",                   code:"",        loc:"Cabin",   bus:["rs232"], opt:true},
+  {ref:"GNSS",n:19, name:"GNSS Unit",                     code:"",        loc:"Cabin",   bus:["rs232","eth"], opt:true},
+  {ref:"DTU", n:20, name:"Data Transfer Unit",            code:"",        loc:"Cabin",   bus:["eth"], opt:true},
+  {ref:"SAU", n:21, name:"Sensor Aiming Unit",            code:"",        loc:"Cabin",   bus:["eth"]},
+  {ref:"SM",  n:22, name:"System Master",                 code:"",        loc:"Cabin",   bus:["bb","hmi","eth"]},
+  {ref:"ACU", n:23, name:"Advanced Calculation Unit",     code:"",        loc:"Cabin",   bus:["eth"]},
+  {ref:"REC", n:24, name:"Radio Receiver",                code:"",        loc:"Cabin",   bus:["bb"], opt:true},
+  {ref:"PRG", n:25, name:"Programming Socket",            code:"",        loc:"Cabin",   bus:["prg"]},
+  {ref:"ESG", n:26, name:"Electric Switch Gear",          code:"",        loc:"Cabin",   bus:["bb"]},
+  {ref:"HM",  n:27, name:"HMI Master",                    code:"",        loc:"Cabin",   bus:["hmi"]},
+  {ref:"LCP", n:28, name:"Left Control Panel",            code:"",        loc:"Cabin",   bus:["hmi"]},
+  {ref:"RCP", n:29, name:"Right Control Panel",           code:"",        loc:"Cabin",   bus:["hmi"]},
+  {ref:"ACP", n:30, name:"Aux Control Panel",             code:"",        loc:"Cabin",   bus:["hmi"]},
+  {ref:"RLU", n:31, name:"Repeater Data Logger Unit",     code:"",        loc:"Carrier", bus:["bb"]},
+  {ref:"PETU",n:32, name:"Pump Electronic Tank Unit (Tier4)",code:"",     loc:"Carrier", bus:["j1939"]}
+];
+
+/* FAULT CODES écran — retour d'expérience terrain */
+const CODES = [
+  {
+    code:"Stabilizer pressure error",
+    sev:"major", src:"field", sys:"Drilling / Stabilizer",
+    alt:"S'affiche aussi « stabiliser error ». Peut apparaître à l'usage du joystick de rotation/forage.",
+    desc:"Pression du stabilisateur hors plage. Le bloc de commande stabilisateur (repère 33) comprend le transducteur B125P, la valve directionnelle Y126 et la valve de décharge proportionnelle Y125. Le forage peut être bloqué ou dégradé.",
+    causes:[
+      {name:"Capteur stabilisateur B125P — loose contact", freq:"high",
+       check:"Inspecter le connecteur du transducteur B125P : oxydation, broche déboîtée, câble pincé. Un faux contact donne une lecture erratique → erreur de pression, souvent déclenchée pendant une séquence de forage/rotation. Re-sertir / nettoyer.",
+       part:"B125P (transducteur, bloc 33.01)"},
+      {name:"Transducteur B125P défectueux", freq:"high",
+       check:"Si le contact est bon mais la lecture reste figée ou aberrante : contrôler alimentation et signal de sortie du B125P. Remplacer si HS.",
+       part:"B125P (transducteur, bloc 33.01)"},
+      {name:"Valve Y125 (décharge proportionnelle)", freq:"mid",
+       check:"Contrôler la valve Y125 (33.04) : commande solénoïde (résistance bobine) et action hydraulique. C'est la valve de décharge proportionnelle du stabilisateur.",
+       part:"Y125 (valve 33.04)"},
+      {name:"Calibrage du stabilisateur", freq:"mid",
+       check:"La valve Y125 DOIT être calibrée (confirmé doc Sandvik). Relancer la procédure de calibrage du stabilisateur depuis le menu Maintenance. Une dérive fausse la lecture de pression.",
+       part:""},
+      {name:"Filtre stabilisateur colmaté / bypass switch", freq:"mid",
+       check:"Confirmé doc Features (photo) : le stabilisateur a un Filter bypass switch. Si le filtre se colmate, le bypass switch peut déclencher une alarme de pression. Vérifier l'état du filtre stabilisateur et le contact du bypass switch.",
+       part:"Stabiliser filter bypass switch"}
+    ],
+    note:"Repères confirmés par le doc hydraulique Sandvik : bloc stabilisateur 33, transducteur B125P (.01), Y126 (.02), Y125 (.04). « Valve 125 » de tes notes = Y125. Quand le contrôle de pression stabilisateur est actif, Y126 est désactivée.",
+    steps:[
+      {ctrl:"Lire le code exact et noter le contexte (forage ? rotation ? joystick ?)", val:"Stabilizer pressure error", tool:"Écran HMI",
+       ok:"Code confirmé → étape 2", nok:"Autre libellé → chercher le bon code"},
+      {ctrl:"Inspecter le connecteur du capteur B125P (faux contact)", val:"Contact propre et serré", tool:"Inspection visuelle",
+       ok:"Contact OK → étape 3", nok:"Re-sertir / nettoyer → re-tester"},
+      {ctrl:"Contrôler alimentation + signal du transducteur B125P", val:"Signal cohérent avec la pression réelle", tool:"Multimètre",
+       ok:"Capteur OK → étape 4", nok:"Remplacer le transducteur B125P"},
+      {ctrl:"Tester la valve Y125 (résistance bobine + action)", val:"Bobine dans la plage, ouverture franche", tool:"Multimètre + manomètre",
+       ok:"Valve OK → étape 5", nok:"Réparer/remplacer Y125"},
+      {ctrl:"Relancer le calibrage du stabilisateur", val:"Calibrage validé", tool:"Menu Maintenance (pw 123210)",
+       ok:"Défaut résolu", nok:"Escalader vers GMAO / support"}
+    ]
+  },
+  {
+    code:"Engine shutdown — « DM module missing »",
+    sev:"crit", src:"field", sys:"Drilling Master / Feed",
+    desc:"Le moteur se coupe et l'écran signale la perte du module DM (Drilling Master). Cas vécu : un court-circuit sur le connecteur de la feed valve fait tomber le DM, ce qui entraîne l'arrêt moteur.",
+    causes:[
+      {name:"Court-circuit sur le connecteur de la feed valve", freq:"high",
+       check:"Inspecter le connecteur des solénoïdes de feed valve (Y3A forward / Y3B backward, bloc feed). Un court-circuit sur ce connecteur perturbe le DM. Débrancher le connecteur suspect et voir si le DM revient. Vérifier câble pincé, eau, broches en court.",
+       part:"Connecteur feed valve Y3A/Y3B"},
+      {name:"Câblage / alimentation du DM", freq:"low",
+       check:"Vérifier l'alimentation et le bus du Drilling Master (boom). Réf schéma alim DM : BG01110402 (ED LINKED). Voir onglet Modules pour localisation (DM = repère 3, boom).",
+       part:"DM (Drilling Master) — alim BG01110402"}
+    ],
+    note:"Lien terrain → doc : la feed valve correspond aux pilotes Y3A (FW) et Y3B (BW), bloc feed control (.15/.16). Mécanisme exact « court-circuit feed → chute DM → shutdown » = retour d'expérience, non décrit dans la doc fournie.",
+    steps:[
+      {ctrl:"Noter le code et l'instant de la coupure (à l'avance feed ?)", val:"DM module missing + engine shutdown", tool:"Écran HMI",
+       ok:"Confirmé → étape 2", nok:"Autre module manquant → voir fiche module muet"},
+      {ctrl:"Débrancher le connecteur de la feed valve (Y3A/Y3B) et re-tester", val:"DM réapparaît après débranchement", tool:"—",
+       ok:"Court-circuit feed confirmé → étape 3", nok:"Chercher ailleurs (alim/bus DM)"},
+      {ctrl:"Inspecter le connecteur + câble feed valve (court, eau, broche)", val:"Cause du court localisée", tool:"Multimètre",
+       ok:"Réparer le connecteur/câble", nok:"Remplacer le faisceau / la valve"}
+    ]
+  },
+  {
+    code:"Starting problem — cloches jaunes « X » partout",
+    sev:"crit", src:"field", sys:"Alimentation / Réseau",
+    desc:"Au démarrage, des cloches d'alarme jaunes avec « X » s'affichent sur les modules. Cas vécu et résolu : c'est la branche optionnelle ACU + LAN switch (non utilisée sur nos machines) qui perturbait le réseau. Isoler le fusible F17 qui l'alimente rétablit le système.",
+    causes:[
+      {name:"Branche optionnelle ACU / LAN switch en défaut (fusible F17)", freq:"high",
+       check:"F17 (6A) alimente l'ACU (Advanced Calculation Unit) et le LAN switch — option NON utilisée chez nous. Si cette branche tombe en défaut, elle fait apparaître les cloches « X » sur le réseau. Action validée terrain : isoler/retirer F17 pour couper cette branche optionnelle → le système repart. Confirmé par le schéma ED LINKED (câble 170, 1.0mm²).",
+       part:"F17 (6A, dans MRJB)"},
+      {name:"Court-circuit réel en aval de F17", freq:"low",
+       check:"Si l'ACU/LAN est bien utilisé chez toi (vérifier la config machine), ne pas simplement isoler : chercher un court-circuit sur le câble 170 avant de remettre F17.",
+       part:""}
+    ],
+    note:"Confirmé : F17 = 6A, alimente « ACU & LAN SWITCH SUPPLY » (schéma ED LINKED). L'ACU étant optionnel et non utilisé sur les machines de Gora, l'isolement de F17 est une manœuvre correcte, pas une réparation de fusible grillé. À adapter si une autre machine utilise réellement l'ACU.",
+    steps:[
+      {ctrl:"Confirmer les cloches « X » et vérifier si l'ACU est utilisé sur cette machine", val:"ACU non utilisé (option absente)", tool:"Écran HMI + config machine",
+       ok:"ACU non utilisé → étape 2", nok:"ACU utilisé → chercher un court réel, ne pas isoler"},
+      {ctrl:"Localiser F17 dans le MRJB (Main Relay Junction Box)", val:"F17 = 6A, repéré", tool:"Schéma fusibles / MRJB",
+       ok:"F17 localisé → étape 3", nok:""},
+      {ctrl:"Isoler / retirer F17 (couper la branche ACU + LAN switch)", val:"Cloches « X » disparaissent, système repart", tool:"—",
+       ok:"Défaut résolu", nok:"Si X persistent → la cause est ailleurs (voir fiche module muet)"}
+    ]
+  },
+  {
+    code:"Starting problem — emergency stop apparaît/disparaît + DM communication",
+    sev:"crit", src:"field", sys:"Alimentation / DM",
+    desc:"Au démarrage, l'arrêt d'urgence s'affiche puis disparaît de façon intermittente, avec perte de communication DM. Cas vécu : cosses de batterie fissurées / faux contact. Les circuits emergency stop NC1/NC2 et le relais temporisé K10 sont sensibles aux fluctuations d'alimentation.",
+    causes:[
+      {name:"Cosse de batterie fissurée / desserrée", freq:"high",
+       check:"Inspecter les cosses de batterie : fissures, oxydation, serrage. Un faux contact fait fluctuer la tension → les circuits NC1/NC2 de l'emergency stop s'ouvrent/ferment et le DM perd la com par instants. Nettoyer/resserrer ou remplacer la cosse.",
+       part:"Cosse batterie"},
+      {name:"Masses / câbles de puissance", freq:"mid",
+       check:"Vérifier les points de masse et les câbles de puissance entre batterie et coffret. Une masse douteuse donne le même symptôme intermittent.",
+       part:""},
+      {name:"Relais temporisé K10 / circuits NC1-NC2", freq:"low",
+       check:"Si l'alimentation est saine : contrôler le relais temporisé K10 (réglages usine) et les circuits emergency stop NC1/NC2 vers le carrier (schéma ED LINKED).",
+       part:"K10 (relais temporisé)"}
+    ],
+    note:"Confirmé schéma ED LINKED : circuits EMERGENCY STOP NC1/NC2 vers carrier + K10 = relais temporisé (TIME RELAY). Symptôme intermittent = signature d'un défaut de contact d'alimentation → la cosse reste la cause n°1.",
+    steps:[
+      {ctrl:"Observer si emergency stop + perte DM sont intermittents", val:"Apparition/disparition liée aux vibrations/contact", tool:"Écran HMI",
+       ok:"Intermittent → suspecter contact alim → étape 2", nok:"Permanent → vérifier circuit emergency stop / K10"},
+      {ctrl:"Inspecter cosses de batterie (fissure, oxydation, serrage)", val:"Cosses saines et serrées", tool:"Inspection + clé",
+       ok:"Cosses OK → étape 3", nok:"Nettoyer/remplacer la cosse → re-tester"},
+      {ctrl:"Contrôler masses, câbles de puissance, puis K10 / NC1-NC2", val:"Masses propres, continuité OK, K10 sain", tool:"Multimètre",
+       ok:"Escalader si défaut persiste", nok:"Réparer masse/câble ou K10"}
+    ]
+  },
+  {
+    code:"Feed backward electrical problem",
+    sev:"major", src:"field", sys:"Feed",
+    desc:"Erreur électrique sur la descente/recul d'avance (feed backward). Cas vécu : résistance de la feed valve trop élevée. La valve concernée est le pilote Y3B (backward) du bloc feed control.",
+    causes:[
+      {name:"Résistance solénoïde Y3B trop élevée", freq:"high",
+       check:"Mesurer la résistance de la bobine du solénoïde Y3B (feed backward). Une résistance trop grande = bobine en fin de vie / connexion résistive. ⚠️ Valeur normale à confirmer : comparer avec une valve saine (ou Y3A forward) à défaut de valeur Sandvik.",
+       part:"Y3B (feed pilot BW, .16)"},
+      {name:"Connecteur / câblage Y3B résistif", freq:"mid",
+       check:"Avant de condamner la bobine : vérifier connecteur et câble du Y3B (oxydation, sertissage). Une connexion résistive gonfle la résistance mesurée.",
+       part:"Connecteur Y3B"}
+    ],
+    note:"Doc Sandvik confirme : feed = pilotes électro-hydrauliques Y3A (forward) / Y3B (backward), bloc feed control (.15/.16) ; Y3A/B doivent être calibrées. Valeur ohmique normale NON donnée dans les docs → à confirmer.",
+    steps:[
+      {ctrl:"Confirmer que le défaut est sur le backward (recul)", val:"Feed backward electrical problem", tool:"Écran HMI",
+       ok:"Confirmé → étape 2", nok:"Si forward → mesurer Y3A à la place"},
+      {ctrl:"Mesurer la résistance bobine Y3B, comparer à Y3A (saine)", val:"Résistances proches entre Y3A et Y3B", tool:"Multimètre (ohms)",
+       ok:"Bobine OK → étape 3", nok:"Y3B trop élevée → remplacer la valve/bobine"},
+      {ctrl:"Vérifier connecteur + câble Y3B", val:"Contact propre, pas de résistance parasite", tool:"Multimètre",
+       ok:"Re-calibrer le feed (Y3A/B)", nok:"Réparer connecteur/câble"}
+    ]
+  }
+];
+
+/* SYMPTÔMES électroniques sans code — diagnostics guidés */
+const SYMPTOMES = [
+  {
+    title:"Un module ne répond plus (perte de communication)",
+    sev:"major", src:"std", sys:"CAN Bus",
+    desc:"L'écran signale qu'un module est muet, ou une fonction liée à un module disparaît. Démarche générique de recherche du module muet sur le bus.",
+    causes:[
+      {name:"Alimentation du module absente", freq:"high",
+       check:"Vérifier la tension d'alimentation au connecteur du module (à confirmer sur schéma : nominal 24 V système).", part:""},
+      {name:"Connecteur oxydé / desserré", freq:"high",
+       check:"Inspecter et re-sertir les connecteurs du module et de sa junction box.", part:""},
+      {name:"Câble de bus coupé / pincé", freq:"mid",
+       check:"Continuité du segment de bus entre le module et la junction box la plus proche.", part:""},
+      {name:"Terminator manquant / défectueux", freq:"low",
+       check:"Vérifier la présence et l'état des terminators aux extrémités du segment.", part:"Terminator"}
+    ],
+    note:"Valeurs 24 V et résistance bus = standard à confirmer sur le schéma de circuit (05.pdf).",
+    steps:[
+      {ctrl:"Identifier le module muet via l'écran de diagnostic (vue Troubleshooting)", val:"Module nommé", tool:"Écran HMI (niv. Maintenance, pw 123210)",
+       ok:"Module identifié → étape 2", nok:"Tout le système muet → suspecter System Master / alim générale"},
+      {ctrl:"Localiser physiquement le module (voir onglet Modules)", val:"Emplacement Cabin/Carrier/Boom", tool:"Carte des modules",
+       ok:"Module localisé → étape 3", nok:""},
+      {ctrl:"Vérifier l'alimentation au connecteur du module", val:"Tension présente (≈24 V à confirmer)", tool:"Multimètre",
+       ok:"Alim OK → étape 4", nok:"Remonter le circuit d'alimentation / fusible"},
+      {ctrl:"Contrôler connecteurs + continuité du segment de bus", val:"Contacts propres, continuité OK", tool:"Multimètre",
+       ok:"Bus OK → suspecter le module lui-même", nok:"Réparer câble / connecteur"}
+    ]
+  },
+  {
+    title:"Perte de communication moteur (J1939 / ECM)",
+    sev:"crit", src:"std", sys:"CAN J1939",
+    desc:"Données moteur absentes ou figées (régime, température). Le réseau J1939 relie l'ECM au FCC/RCC/PETU.",
+    causes:[
+      {name:"Liaison J1939 ECM ↔ FCC/RCC coupée", freq:"high",
+       check:"Continuité du bus J1939 entre l'ECM et le contrôleur carrier.", part:""},
+      {name:"Alimentation ECM", freq:"mid",
+       check:"Vérifier alimentation et masses de l'ECM moteur.", part:""},
+      {name:"Fault code côté moteur diesel", freq:"mid",
+       check:"À compléter : lire les fault codes moteur (manuel diesel à intégrer).", part:""}
+    ],
+    note:"Les fault codes moteur diesel seront ajoutés quand le manuel sera fourni.",
+    steps:[
+      {ctrl:"Vérifier si les données moteur s'affichent (régime, T°)", val:"Valeurs présentes et vivantes", tool:"Écran HMI",
+       ok:"Données OK → faux problème", nok:"Données absentes → étape 2"},
+      {ctrl:"Contrôler la liaison J1939 ECM ↔ FCC/RCC", val:"Continuité OK", tool:"Multimètre",
+       ok:"Liaison OK → étape 3", nok:"Réparer le segment J1939"},
+      {ctrl:"Vérifier alimentation et masses de l'ECM", val:"Alim + masses correctes", tool:"Multimètre",
+       ok:"Lire les fault codes moteur (manuel diesel)", nok:"Rétablir alim/masse ECM"}
+    ]
+  }
+];
+
+/* ============================================================
+   RENDU
+   ============================================================ */
+const $ = s=>document.querySelector(s);
+const busColor = id => (BUS.find(b=>b.id===id)||{}).color || "#64748b";
+const busName  = id => (BUS.find(b=>b.id===id)||{}).name || id;
+const sevClass = s => s==="crit"?"s-crit":s==="major"?"s-major":"s-minor";
+const sevLabel = s => s==="crit"?"Critique":s==="major"?"Majeur":"Mineur";
+const srcBadge = s => s==="doc"?'<span class="badge b-doc">Doc</span>':
+                      s==="field"?'<span class="badge b-field">Terrain</span>':
+                      '<span class="badge b-std">Std</span>';
+const freqLabel = f => f==="high"?"Fréquent":f==="low"?"Rare":"Possible";
+const freqClass = f => f==="high"?"f-high":f==="low"?"f-low":"";
+
+/* ---- Recherche floue (offline, tolérante aux fautes) ----
+   Normalise (accents, casse), découpe la requête en mots,
+   chaque mot doit matcher un bout du texte cible (inclusion OU
+   distance de Levenshtein courte). Score = nb de mots trouvés. */
+function norm(s){return (s||"").toLowerCase()
+  .normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+  .replace(/[«»".,/\-—()]/g," ").replace(/\s+/g," ").trim();}
+function lev(a,b){ // distance d'édition simple
+  const m=a.length,n=b.length;if(!m)return n;if(!n)return m;
+  let prev=[...Array(n+1).keys()],cur=[];
+  for(let i=1;i<=m;i++){cur[0]=i;
+    for(let j=1;j<=n;j++){
+      cur[j]=Math.min(prev[j]+1,cur[j-1]+1,prev[j-1]+(a[i-1]===b[j-1]?0:1));
+    }prev=[...cur];}
+  return prev[n];
+}
+function wordHit(word,hay){
+  if(word.length<=2) return hay.includes(word);
+  if(hay.includes(word)) return true;
+  // tolérance fautes : chaque mot du texte cible
+  const tol = word.length<=4?1:2;
+  return hay.split(" ").some(t=>t.length>2 && lev(word,t)<=tol);
+}
+function fuzzyMatch(query, target){
+  const q=norm(query); if(!q) return true;
+  const hay=norm(target);
+  const words=q.split(" ").filter(Boolean);
+  return words.every(w=>wordHit(w,hay));
+}
+// champ de recherche complet d'un code (libellé, alt, repères, causes)
+function codeHaystack(c){
+  return [c.code,c.alt,c.sys,c.desc,
+    ...(c.causes||[]).map(x=>x.name+" "+x.check+" "+(x.part||""))].join(" ");
+}
+function sympHaystack(s){
+  return [s.title,s.sys,s.desc,
+    ...(s.causes||[]).map(x=>x.name+" "+x.check)].join(" ");
+}
+
+function renderCodes(filter=""){
+  const f = filter.trim();
+  const list = CODES.filter(c=>!f || fuzzyMatch(f, codeHaystack(c)));
+  $("#codes-count").textContent = list.length+" code"+(list.length>1?"s":"");
+  $("#codes-list").innerHTML = list.length ? list.map((c,i)=>`
+    <div class="card" onclick="openCode(${CODES.indexOf(c)})">
+      <div class="card-top">
+        <span class="tag" style="color:var(--major)">⚠</span>
+        <div style="flex:1">
+          <div class="card-title">${c.code}</div>
+          <div class="card-meta">${c.sys}</div>
+        </div>
+        <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
+      </div>
+      <div style="display:flex;gap:7px;margin-top:11px;align-items:center">
+        <span class="sev ${sevClass(c.sev)}">${sevLabel(c.sev)}</span>
+        ${srcBadge(c.src)}
+        <span style="margin-left:auto;font-size:11.5px;color:var(--txt-faint)">${c.causes.length} causes</span>
+      </div>
+    </div>`).join("") : emptyState("Aucun code","Ajoute tes fault codes terrain ici");
+}
+
+function renderSymptomes(filter=""){
+  const f = filter.trim();
+  const list = SYMPTOMES.filter(s=>!f || fuzzyMatch(f, sympHaystack(s)));
+  $("#symp-count").textContent = list.length+" symptôme"+(list.length>1?"s":"");
+  $("#symp-list").innerHTML = list.length ? list.map(s=>`
+    <div class="card" onclick="openSymp(${SYMPTOMES.indexOf(s)})">
+      <div class="card-top">
+        <span class="bus-dot" style="background:${s.sys.includes('J1939')?'var(--bus-j1939)':'var(--bus-bb)'}"></span>
+        <div style="flex:1">
+          <div class="card-title">${s.title}</div>
+          <div class="card-meta">${s.sys}</div>
+        </div>
+        <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
+      </div>
+      <div style="display:flex;gap:7px;margin-top:11px;align-items:center">
+        <span class="sev ${sevClass(s.sev)}">${sevLabel(s.sev)}</span>
+        ${srcBadge(s.src)}
+        <span style="margin-left:auto;font-size:11.5px;color:var(--txt-faint)">${s.steps.length} étapes</span>
+      </div>
+    </div>`).join("") : emptyState("Aucun symptôme","");
+}
+
+function renderModules(filter=""){
+  const f = filter.trim();
+  const list = MODULES.filter(m=>!f || fuzzyMatch(f, m.ref+" "+m.name+" "+m.code+" "+m.loc));
+  $("#mod-count").textContent = list.length+" / 32";
+  const order={Cabin:0,Carrier:1,Boom:2};
+  list.sort((a,b)=> (order[a.loc]-order[b.loc]) || a.n-b.n);
+  $("#mod-list").innerHTML = list.length ? list.map(m=>`
+    <div class="card flat">
+      <div class="card-top">
+        <span class="tag tnum">${m.ref}</span>
+        <div style="flex:1">
+          <div class="card-title" style="font-size:14.5px">${m.name}${m.opt?' <span style="font-size:10px;color:var(--txt-faint);font-weight:600">OPT</span>':''}</div>
+          <div class="card-meta">${m.code?m.code+' · ':''}repère n°${m.n}</div>
+        </div>
+        <span class="loc-pill">${m.loc}</span>
+      </div>
+      <div style="display:flex;gap:6px;margin-top:11px;align-items:center;flex-wrap:wrap">
+        ${m.bus.map(b=>`<span class="step-chip" style="padding:3px 8px"><span class="bus-dot" style="background:${busColor(b)};width:8px;height:8px"></span>${busName(b)}</span>`).join("")}
+      </div>
+    </div>`).join("") : emptyState("Aucun module","");
+}
+
+function renderBus(){
+  $("#bus-list").innerHTML = BUS.map(b=>`
+    <div class="bus-item">
+      <span class="bus-line" style="background:${b.color}"></span>
+      <div><div class="bus-name">${b.name}</div><div class="bus-desc">${b.desc}</div></div>
+    </div>`).join("");
+}
+
+function renderComposants(filter=""){
+  const f = filter.trim();
+  const list = COMPOSANTS.filter(c=>!f || fuzzyMatch(f, c.ref+" "+c.nom+" "+c.cat+" "+c.loc+" "+c.desc));
+  $("#comp-count").textContent = list.length+" repère"+(list.length>1?"s":"");
+  // grouper par catégorie
+  const cats=[...new Set(list.map(c=>c.cat))];
+  $("#comp-list").innerHTML = list.length ? cats.map(cat=>`
+    <div class="block-label" style="margin:16px 2px 8px">${cat}</div>
+    ${list.filter(c=>c.cat===cat).map(c=>`
+      <div class="card flat">
+        <div class="card-top">
+          <span class="tag tnum">${c.ref}</span>
+          <div style="flex:1">
+            <div class="card-title" style="font-size:14px">${c.nom}</div>
+            <div class="card-meta">${c.loc}${c.val?' · '+c.val:''}</div>
+          </div>
+          ${srcBadge(c.src)}
+        </div>
+        <div style="font-size:12.5px;color:var(--txt-dim);margin-top:9px;line-height:1.45">${c.desc}</div>
+      </div>`).join("")}
+  `).join("") : emptyState("Aucun composant","");
+}
+
+function emptyState(t,s){return `<div class="empty"><div class="big">∅</div><div>${t}</div>${s?`<div style="font-size:12px;margin-top:6px">${s}</div>`:''}</div>`;}
+
+/* ---- Detail sheets ---- */
+function diagBlocks(item){
+  let html="";
+  if(item.causes){
+    html+=`<div class="block"><div class="block-label">Causes probables</div>`;
+    item.causes.forEach((c,i)=>{
+      html+=`<div class="cause">
+        <div class="cause-head">
+          <span class="cause-num">${i+1}</span>
+          <span class="cause-name">${c.name}</span>
+          <span class="cause-freq ${freqClass(c.freq)}">${freqLabel(c.freq)}</span>
+        </div>
+        <div class="cause-check">${c.check}</div>
+        ${c.part?`<span class="cause-part">🔩 ${c.part}</span>`:''}
+      </div>`;
+    });
+    html+=`</div>`;
+  }
+  if(item.steps){
+    html+=`<div class="block"><div class="block-label">Diagnostic guidé pas-à-pas</div>`;
+    item.steps.forEach((s,i)=>{
+      const last=i===item.steps.length-1;
+      html+=`<div class="step">
+        <div class="step-rail"><div class="step-num">${i+1}</div>${last?'':'<div class="step-line"></div>'}</div>
+        <div class="step-body">
+          <div class="step-ctrl">${s.ctrl}</div>
+          <div class="step-row">
+            ${s.val?`<span class="step-chip">🎯 <b>${s.val}</b></span>`:''}
+            ${s.tool?`<span class="step-chip">🛠 ${s.tool}</span>`:''}
+          </div>
+          <div class="step-branch">
+            ${s.ok?`<div class="branch ok"><b>Si OK</b>${s.ok}</div>`:''}
+            ${s.nok?`<div class="branch nok"><b>Si NOK</b>${s.nok}</div>`:''}
+          </div>
+        </div>
+      </div>`;
+    });
+    html+=`</div>`;
+  }
+  if(item.note){
+    html+=`<div class="note"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg><div>${item.note}</div></div>`;
+  }
+  // bloc photo jointe (offline) — identifiant stable de la fiche
+  const fid = "photo:"+norm(item.code||item.title).replace(/\s+/g,"_");
+  html+=`<div class="block">
+    <div class="block-label">Photo de l'écran machine</div>
+    <div class="photo-zone" id="pz_${fid}">
+      <label class="photo-btn">
+        📷 Prendre / joindre une photo
+        <input type="file" accept="image/*" capture="environment" style="display:none"
+               onchange="attachPhoto('${fid}',this)">
+      </label>
+      <div class="photo-grid" id="pg_${fid}"></div>
+    </div>
+    <div class="photo-hint">Archivée en local sur l'appareil. Part avec le transfert GMAO comme preuve.</div>
+  </div>`;
+  html+=`<div class="fb-bar">
+    <button class="fb-btn fb-fixed" onclick="markFixed()">✓ Réparé</button>
+    <button class="fb-btn fb-gmao" onclick="toGmao()">↗ Transférer GMAO</button>
+  </div>`;
+  setTimeout(()=>loadPhotos(fid),0);
+  return html;
+}
+
+function openCode(i){
+  const c=CODES[i];
+  $("#sheet-head").innerHTML=`
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <span class="sev ${sevClass(c.sev)}">${sevLabel(c.sev)}</span>${srcBadge(c.src)}
+      <span class="loc-pill">${c.sys}</span>
+    </div>
+    <h3>${c.code}</h3>${c.alt?`<div style="font-size:12.5px;color:#7dd3fc;margin:2px 0 4px">↔ ${c.alt}</div>`:''}<div class="desc">${c.desc}</div>`;
+  $("#sheet-body").innerHTML=diagBlocks(c);
+  showSheet();
+}
+function openSymp(i){
+  const s=SYMPTOMES[i];
+  $("#sheet-head").innerHTML=`
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <span class="sev ${sevClass(s.sev)}">${sevLabel(s.sev)}</span>${srcBadge(s.src)}
+      <span class="loc-pill">${s.sys}</span>
+    </div>
+    <h3>${s.title}</h3><div class="desc">${s.desc}</div>`;
+  $("#sheet-body").innerHTML=diagBlocks(s);
+  showSheet();
+}
+function showSheet(){$("#overlay").classList.add("open");$("#sheet").classList.add("open");$("#sheet-body").scrollTop=0;}
+function closeSheet(){$("#overlay").classList.remove("open");$("#sheet").classList.remove("open");}
+function markFixed(){const b=event.target;b.textContent="✓ Marqué réparé";b.style.opacity=".7";setTimeout(closeSheet,600);}
+function toGmao(){const b=event.target;b.textContent="↗ Transféré";setTimeout(closeSheet,600);}
+
+/* ---- Photo jointe : stockage local IndexedDB (offline) ---- */
+let _db=null;
+function openDB(){
+  return new Promise((res,rej)=>{
+    if(_db)return res(_db);
+    if(!window.indexedDB)return rej("no-idb");
+    const r=indexedDB.open("dp1500i_photos",1);
+    r.onupgradeneeded=e=>{const db=e.target.result;
+      if(!db.objectStoreNames.contains("photos"))db.createObjectStore("photos",{keyPath:"id",autoIncrement:true});};
+    r.onsuccess=e=>{_db=e.target.result;res(_db);};
+    r.onerror=()=>rej(r.error);
+  });
+}
+function attachPhoto(fid,input){
+  const file=input.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=async()=>{
+    const rec={fiche:fid,data:reader.result,ts:Date.now()};
+    try{
+      const db=await openDB();
+      const tx=db.transaction("photos","readwrite");
+      tx.objectStore("photos").add(rec);
+      tx.oncomplete=()=>loadPhotos(fid);
+    }catch(err){
+      // fallback aperçu (sans persistance — ex: artifact preview)
+      _memPhotos[fid]=_memPhotos[fid]||[];_memPhotos[fid].push(rec);
+      loadPhotos(fid);
+    }
+  };
+  reader.readAsDataURL(file);
+  input.value="";
+}
+const _memPhotos={};
+async function loadPhotos(fid){
+  const grid=document.getElementById("pg_"+fid);if(!grid)return;
+  let photos=[];
+  try{
+    const db=await openDB();
+    photos=await new Promise((res)=>{
+      const out=[];const tx=db.transaction("photos","readonly");
+      const cur=tx.objectStore("photos").openCursor();
+      cur.onsuccess=e=>{const c=e.target.result;
+        if(c){if(c.value.fiche===fid)out.push({...c.value,_key:c.key});c.continue();}else res(out);};
+      cur.onerror=()=>res(out);
+    });
+  }catch(err){photos=_memPhotos[fid]||[];}
+  grid.innerHTML=photos.map(p=>`
+    <div class="photo-thumb">
+      <img src="${p.data}" onclick="viewPhoto('${p.data}')">
+      ${p._key!=null?`<button class="photo-del" onclick="delPhoto(${p._key},'${fid}')">×</button>`:''}
+    </div>`).join("");
+}
+async function delPhoto(key,fid){
+  try{const db=await openDB();const tx=db.transaction("photos","readwrite");
+    tx.objectStore("photos").delete(key);tx.oncomplete=()=>loadPhotos(fid);}catch(e){}
+}
+function viewPhoto(src){
+  const o=document.createElement("div");o.className="photo-full";
+  o.onclick=()=>o.remove();o.innerHTML=`<img src="${src}">`;
+  document.body.appendChild(o);
+}
+
+/* ---- Tabs + search ---- */
+let currentView="assistant";
+document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>{
+  switchView(t.dataset.view);
+});
+function switchView(v){
+  document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("active",x.dataset.view===v));
+  document.querySelectorAll(".view").forEach(x=>x.classList.remove("active"));
+  currentView=v;
+  $("#view-"+v).classList.add("active");
+  // la recherche du haut ne sert pas dans l'assistant
+  document.querySelector(".search-wrap").style.display = v==="assistant"?"none":"block";
+  applySearch();
+}
+function applySearch(){
+  const q=$("#search").value;
+  if(currentView==="codes")renderCodes(q);
+  else if(currentView==="symptomes")renderSymptomes(q);
+  else if(currentView==="modules")renderModules(q);
+  else if(currentView==="composants")renderComposants(q);
+}
+$("#search").addEventListener("input",applySearch);
+
+/* init */
+renderCodes();renderSymptomes();renderModules();renderBus();renderComposants();
+document.querySelector(".search-wrap").style.display="none"; // assistant actif au démarrage
+
+/* ============================================================
+   ASSISTANT — niveau 1 (local, offline) + niveau 2 (API en ligne)
+   ============================================================ */
+let API_KEY = "";            // rempli si l'utilisateur colle une clé
+const chatHistory = [];
+
+function updateAsstMode(){
+  const m=document.getElementById("asst-mode");
+  if(API_KEY){m.className="asst-mode on";m.textContent="● IA en ligne";}
+  else{m.className="asst-mode off";m.textContent="○ Hors-ligne (local)";}
+}
+function toggleApiCfg(){document.getElementById("asst-cfg").classList.toggle("open");}
+function saveApiKey(){
+  const k=document.getElementById("asst-key").value.trim();
+  API_KEY=k;updateAsstMode();
+  document.getElementById("asst-cfg").classList.remove("open");
+  addAImsg(k?"Assistant IA en ligne activé. Je raisonnerai désormais plus finement sur tes pannes (nécessite internet). En cas de coupure réseau, je repasse automatiquement en mode local.":"Clé retirée — retour au mode hors-ligne (recherche locale).");
+}
+
+/* --- Recherche locale intelligente (niveau 1) --- */
+function scoreItem(query, hayParts){
+  const q=norm(query);const words=q.split(" ").filter(w=>w.length>2);
+  let score=0;
+  hayParts.forEach((part,wi)=>{
+    const weight=[3,2,1][wi]||1; // titre pèse plus
+    const h=norm(part);
+    words.forEach(w=>{
+      if(h.includes(w))score+=weight;
+      else if(h.split(" ").some(t=>t.length>3&&lev(w,t)<=1))score+=weight*0.5;
+    });
+  });
+  return score;
+}
+function localAnalyze(query){
+  const results=[];
+  CODES.forEach((c,i)=>{
+    const s=scoreItem(query,[c.code+" "+(c.alt||""), c.sys+" "+c.desc,
+      (c.causes||[]).map(x=>x.name+" "+x.check).join(" ")]);
+    if(s>0)results.push({type:"code",idx:i,name:c.code,why:c.causes[0].name,score:s});
+  });
+  SYMPTOMES.forEach((sy,i)=>{
+    const s=scoreItem(query,[sy.title, sy.sys+" "+sy.desc,
+      (sy.causes||[]).map(x=>x.name).join(" ")]);
+    if(s>0)results.push({type:"symp",idx:i,name:sy.title,why:sy.causes[0].name,score:s});
+  });
+  COMPOSANTS.forEach((c)=>{
+    const s=scoreItem(query,[c.ref+" "+c.nom, c.cat+" "+c.loc, c.desc]);
+    if(s>1.5)results.push({type:"comp",name:c.ref+" — "+c.nom,why:c.desc,score:s});
+  });
+  results.sort((a,b)=>b.score-a.score);
+  return results.slice(0,5);
+}
+
+function addUsermsg(t){
+  const chat=document.getElementById("asst-chat");
+  const d=document.createElement("div");d.className="msg-user";d.textContent=t;
+  chat.appendChild(d);chat.scrollIntoView({block:"end"});
+}
+function addAImsg(html){
+  const chat=document.getElementById("asst-chat");
+  const d=document.createElement("div");d.className="msg-ai";
+  d.innerHTML=`<div class="ai-label">🔧 Assistant</div>${html}`;
+  chat.appendChild(d);d.scrollIntoView({block:"end",behavior:"smooth"});
+  return d;
+}
+function resultCard(r){
+  const open = r.type==="code"?`openCode(${r.idx})`:r.type==="symp"?`openSymp(${r.idx})`:"";
+  const click = open?` onclick="${open};switchView('${r.type==='code'?'codes':'symptomes'}')"`:"";
+  return `<div class="ai-result"${click}>
+    <div class="ai-result-top">
+      <span class="ai-score">${r.type==='comp'?'REPÈRE':'FICHE'}</span>
+      <span class="ai-result-name">${r.name}</span>
+    </div>
+    <div class="ai-result-why">${r.why}</div>
+  </div>`;
+}
+
+function askAssistant(){
+  const ta=document.getElementById("asst-text");
+  const q=ta.value.trim();if(!q)return;
+  addUsermsg(q);ta.value="";
+  if(API_KEY){ askOnline(q); }
+  else { answerLocal(q); }
+}
+
+function answerLocal(q){
+  const res=localAnalyze(q);
+  if(res.length){
+    const intro = res.length>=3?"Voici les pistes les plus probables d'après la base :"
+      : "Voici ce que je trouve dans la base :";
+    addAImsg(`${intro}${res.map(resultCard).join("")}
+      <div class="ai-result-why" style="margin-top:10px">Touche une piste pour la procédure complète. Si rien ne correspond, ajoute des détails (quel mouvement, quel message exact à l'écran).</div>`);
+  } else {
+    addAImsg(`<div class="ai-empty">Je n'ai pas trouvé de correspondance directe dans la base hors-ligne. 
+      Essaie avec le message exact affiché à l'écran, ou un repère (Y3B, F17, stabilizer…). 
+      Pour les pannes nouvelles non encore documentées, signale-les à Gora : il les analysera avec les schémas Sandvik et les ajoutera à l'app.</div>`);
+  }
+}
+
+/* --- Niveau 2 : IA en ligne (API Claude) --- */
+function buildKnowledgeBase(){
+  // condensé validé transmis à l'IA pour qu'elle reste fidèle aux docs
+  const codes=CODES.map(c=>`- ${c.code} (${c.sys}): causes = ${c.causes.map(x=>x.name).join("; ")}`).join("\n");
+  const comps=COMPOSANTS.map(c=>`- ${c.ref}: ${c.nom} [${c.cat}, ${c.loc}] ${c.val}`).join("\n");
+  return `Base de connaissance DP1500i (validée terrain + docs Sandvik).\nPANNES CONNUES:\n${codes}\n\nCOMPOSANTS/REPÈRES:\n${comps}`;
+}
+async function askOnline(q){
+  const typing=addAImsg(`<span class="asst-typing">Analyse en cours…</span>`);
+  try{
+    const sys=`Tu es un assistant de dépannage pour la foreuse Sandvik DP1500i, destiné à des mécaniciens juniors. 
+Réponds en français, de façon concise et pratique. Base-toi EN PRIORITÉ sur la base de connaissance fournie. 
+Si la panne n'y est pas, propose une démarche logique mais précise que c'est une piste générale à confirmer. 
+Donne une liste de causes probables classées, avec pour chacune quoi vérifier. Ne jamais inventer de valeurs chiffrées non fournies.
+
+${buildKnowledgeBase()}`;
+    const resp=await fetch("https://api.anthropic.com/v1/messages",{
+      method:"POST",headers:{"Content-Type":"application/json","x-api-key":API_KEY,
+        "anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+      body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:1000,system:sys,
+        messages:[...chatHistory,{role:"user",content:q}]})
+    });
+    const data=await resp.json();
+    const txt=(data.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("\n")||"(réponse vide)";
+    chatHistory.push({role:"user",content:q},{role:"assistant",content:txt});
+    typing.innerHTML=`<div class="ai-label">🤖 Assistant IA</div>${txt.replace(/\n/g,"<br>")}`;
+  }catch(err){
+    // bascule auto vers le local si réseau coupé
+    typing.innerHTML=`<div class="ai-label">🔧 Assistant (hors-ligne)</div>
+      <div class="ai-result-why">Connexion IA indisponible (réseau ?). Je réponds avec la base locale :</div>`;
+    const res=localAnalyze(q);
+    typing.innerHTML+=res.length?res.map(resultCard).join(""):'<div class="ai-empty">Aucune correspondance locale.</div>';
+  }
+}
+
+updateAsstMode();
+addAImsg(`Bonjour 👋 Je suis l'assistant de dépannage du DP1500i. Décris-moi la panne avec tes mots : ce que tu vois à l'écran, ce qui ne fonctionne pas, ou un repère (Y3B, F17, stabilizer…). Je cherche dans toute la base et te propose les causes probables.`);
+</script>
+</body>
+</html>
