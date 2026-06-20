@@ -47,8 +47,18 @@ header{position:sticky;top:0;z-index:50;background:rgba(15,23,42,.92);
 .h-sub{font-size:12px;color:var(--txt-dim);letter-spacing:.02em}
 .machine-pill{margin-left:auto;font-size:12px;font-weight:600;color:var(--accent);
   background:var(--card);border:1px solid var(--line);padding:6px 11px;border-radius:999px;
-  display:flex;align-items:center;gap:6px}
+  display:flex;align-items:center;gap:6px;cursor:pointer;font-family:inherit}
+.machine-pill:active{background:var(--card2)}
 .machine-pill .dot{width:7px;height:7px;border-radius:50%;background:var(--src-field);box-shadow:0 0 6px var(--src-field)}
+.machine-menu{display:none;position:absolute;right:16px;top:calc(100% - 4px);z-index:60;
+  background:var(--bg2);border:1px solid var(--line);border-radius:13px;padding:6px;
+  box-shadow:0 8px 30px rgba(0,0,0,.5);min-width:230px}
+.machine-menu.open{display:block}
+.mm-item{display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:9px;cursor:pointer}
+.mm-item:active{background:var(--card)}
+.mm-name{font-size:14.5px;font-weight:650;color:var(--txt)}
+.mm-sub{font-size:11.5px;color:var(--txt-dim);margin-top:2px}
+.mm-check{margin-left:auto;color:var(--src-field);font-weight:800;font-size:15px}
 
 /* ---------- Search ---------- */
 .search-wrap{padding:12px 16px 4px}
@@ -274,10 +284,23 @@ main{padding:4px 16px 40px}
   <div class="h-row">
     <div class="h-logo">DPi</div>
     <div>
-      <div class="h-title">Dépannage DP1500i</div>
+      <div class="h-title">Dépannage foreuse</div>
       <div class="h-sub">Électricité &amp; Électronique · v0.1</div>
     </div>
-    <div class="machine-pill"><span class="dot"></span>DP1500i</div>
+    <button class="machine-pill" onclick="toggleMachineMenu()">
+      <span class="dot"></span><span id="machine-name">DP1500i</span>
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg>
+    </button>
+  </div>
+  <div class="machine-menu" id="machine-menu">
+    <div class="mm-item" onclick="selectMachine('dp1500i')">
+      <div><div class="mm-name">DP1500i</div><div class="mm-sub">Caterpillar · complet</div></div>
+      <span class="mm-check" id="mm-check-dp1500i">✓</span>
+    </div>
+    <div class="mm-item" onclick="selectMachine('d25ks')">
+      <div><div class="mm-name">D25KS</div><div class="mm-sub">Cat / Cummins · électrique partiel</div></div>
+      <span class="mm-check" id="mm-check-d25ks"></span>
+    </div>
   </div>
 </header>
 
@@ -288,14 +311,7 @@ main{padding:4px 16px 40px}
   </div>
 </div>
 
-<div class="tabs" id="tabs">
-  <div class="tab active" data-view="assistant"><span class="ic">💬</span>Assistant</div>
-  <div class="tab" data-view="codes"><span class="ic">⚠️</span>Codes écran</div>
-  <div class="tab" data-view="symptomes"><span class="ic">🔍</span>Symptômes</div>
-  <div class="tab" data-view="modules"><span class="ic">🔧</span>Modules</div>
-  <div class="tab" data-view="bus"><span class="ic">🔌</span>Réseaux bus</div>
-  <div class="tab" data-view="composants"><span class="ic">🧩</span>Composants</div>
-</div>
+<div class="tabs" id="tabs"></div>
 
 <main>
   <!-- ASSISTANT -->
@@ -361,6 +377,13 @@ main{padding:4px 16px 40px}
     <div id="comp-list"></div>
   </section>
 
+  <!-- VUE SOUS-SYSTÈME (générique, D25KS : Moteur/Compresseur/Hydraulique/Électrique) -->
+  <section class="view" id="view-soussysteme">
+    <p class="intro" id="ss-intro"></p>
+    <div class="sec-head"><h2 id="ss-title"></h2><span class="count" id="ss-count"></span></div>
+    <div id="ss-list"></div>
+  </section>
+
   <div class="src-legend">
     <span><span class="badge b-doc">Doc</span> Manuel Sandvik</span>
     <span><span class="badge b-field">Terrain</span> Retour d'expérience</span>
@@ -388,7 +411,7 @@ main{padding:4px 16px 40px}
    Source fault codes : retour d'expérience terrain (Gora)
    ============================================================ */
 
-const BUS = [
+const DP_BUS = [
   {id:"bb",   name:"CAN BB",    color:"var(--bus-bb)",    desc:"Backbone — épine dorsale, relie SM/FCC/RCC/DM"},
   {id:"prg",  name:"CAN PRG",   color:"var(--bus-prg)",   desc:"Programming — socket de programmation"},
   {id:"hmi",  name:"CAN HMI",   color:"var(--bus-hmi)",   desc:"Interface homme-machine — écrans, panneaux"},
@@ -399,7 +422,7 @@ const BUS = [
 
 /* Composants & repères réels — confirmés par schémas/photos Sandvik
    cat: catégorie · src: doc/field/std */
-const COMPOSANTS = [
+const DP_COMPOSANTS = [
   {ref:"F17", nom:"Fusible ACU + LAN switch", cat:"Électrique", val:"6A", loc:"MRJB",
    desc:"Alimente la branche optionnelle ACU + LAN switch (câble 170). Option non utilisée chez Gora → isolable. Source : ED LINKED.", src:"doc"},
   {ref:"MRJB", nom:"Main Relay Junction Box", cat:"Électrique", val:"", loc:"Carrier",
@@ -445,7 +468,7 @@ const COMPOSANTS = [
 
 /* 32 modules — repère / nom / emplacement / bus principal / n° schéma
    Extraits de la légende numérotée du PDF (page 7) */
-const MODULES = [
+const DP_MODULES = [
   {ref:"SHI", n:1,  name:"Sensor Horizontal Inclination", code:"+B132G",  loc:"Boom",    bus:["hmi"]},
   {ref:"SFI", n:2,  name:"Sensor Feed Inclination",       code:"+B132G.2",loc:"Boom",    bus:["hmi"]},
   {ref:"DM",  n:3,  name:"Drilling Master",               code:"",        loc:"Boom",    bus:["bb","hmi"]},
@@ -481,7 +504,7 @@ const MODULES = [
 ];
 
 /* FAULT CODES écran — retour d'expérience terrain */
-const CODES = [
+const DP_CODES = [
   {
     code:"Stabilizer pressure error",
     sev:"major", src:"field", sys:"Drilling / Stabilizer",
@@ -612,7 +635,7 @@ const CODES = [
 ];
 
 /* SYMPTÔMES électroniques sans code — diagnostics guidés */
-const SYMPTOMES = [
+const DP_SYMPTOMES = [
   {
     title:"Un module ne répond plus (perte de communication)",
     sev:"major", src:"std", sys:"CAN Bus",
@@ -970,15 +993,15 @@ function viewPhoto(src){
 
 /* ---- Tabs + search ---- */
 let currentView="assistant";
-document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>{
-  switchView(t.dataset.view);
-});
+// (les clics sur onglets sont attachés dynamiquement dans renderTabs)
 function switchView(v){
   document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("active",x.dataset.view===v));
   document.querySelectorAll(".view").forEach(x=>x.classList.remove("active"));
   currentView=v;
-  $("#view-"+v).classList.add("active");
-  // la recherche du haut ne sert pas dans l'assistant
+  // les vues "ss-*" partagent la vue générique #view-soussysteme
+  const viewId = v.startsWith("ss-") ? "view-soussysteme" : "view-"+v;
+  const el=$("#"+viewId);
+  if(el) el.classList.add("active");
   document.querySelector(".search-wrap").style.display = v==="assistant"?"none":"block";
   applySearch();
 }
@@ -988,12 +1011,26 @@ function applySearch(){
   else if(currentView==="symptomes")renderSymptomes(q);
   else if(currentView==="modules")renderModules(q);
   else if(currentView==="composants")renderComposants(q);
+  else if(currentView.startsWith("ss-"))renderSubsystem(currentView,q);
 }
 $("#search").addEventListener("input",applySearch);
 
-/* init */
-renderCodes();renderSymptomes();renderModules();renderBus();renderComposants();
-document.querySelector(".search-wrap").style.display="none"; // assistant actif au démarrage
+/* menu sélecteur de machine */
+function toggleMachineMenu(){document.getElementById("machine-menu").classList.toggle("open");}
+function selectMachine(id){
+  document.getElementById("machine-menu").classList.remove("open");
+  document.getElementById("mm-check-dp1500i").textContent = id==="dp1500i"?"✓":"";
+  document.getElementById("mm-check-d25ks").textContent = id==="d25ks"?"✓":"";
+  loadMachine(id);
+  switchView("assistant");
+}
+// fermer le menu si on touche ailleurs
+document.addEventListener("click",e=>{
+  const menu=document.getElementById("machine-menu");
+  const pill=document.querySelector(".machine-pill");
+  if(menu&&menu.classList.contains("open")&&!menu.contains(e.target)&&!pill.contains(e.target))
+    menu.classList.remove("open");
+});
 
 /* ============================================================
    ASSISTANT — niveau 1 (local, offline) + niveau 2 (API en ligne)
@@ -1041,7 +1078,7 @@ function scoreItem(query, hayParts){
 /* ---- Carte de connaissances par sous-système (analyse raisonnée) ----
    Quand aucune fiche ne correspond, l'assistant décompose le message
    d'écran en mots-clés et oriente vers le bon sous-système + composants. */
-const KEYWORD_MAP = [
+const DP_KEYWORD_MAP = [
   {sys:"Stabilisateur", mots:["stabiliser","stabilizer","stab"],
    composants:["B125P","Y125","Y126","Filter bypass switch"],
    demarche:["Vérifier le transducteur de pression B125P (alim + signal + connecteur)","Tester la valve Y125 (bobine + action)","Contrôler le filtre stabilisateur et son bypass switch","Relancer le calibrage du stabilisateur"]},
@@ -1060,6 +1097,9 @@ const KEYWORD_MAP = [
   {sys:"Water injection", mots:["water","eau","injection","b210p"],
    composants:["B210P.1"],
    demarche:["Vérifier le moniteur de pression d'eau B210P.1 (signal + connecteur)","Contrôler la pompe à eau et le débit","Vérifier les filtres du circuit d'eau"]},
+  {sys:"Tramming (déplacement chenilles)", mots:["tramming","tram","deplace","déplace","deplacement","déplacement","translation","chenille","chenilles","track","tracks","crawler","bouge","avancer","reculer machine","roule"],
+   composants:[],
+   demarche:["Vérifier le joystick / la commande de tramming (signal électrique au panneau)","Contrôler les moteurs de translation gauche et droit (un seul côté en défaut = isoler ce côté)","Vérifier les valves du circuit de translation et leurs solénoïdes","Contrôler la pression hydraulique du circuit de translation","Vérifier que le frein de translation se débloque (si la machine ne bouge pas du tout)","Contrôler capteurs et fins de course liés au tramming"]},
   {sys:"Communication / CAN", mots:["communication","com","can","module","missing","bus","timeout"],
    composants:["SM","FCC","RCC","DM","Terminator"],
    demarche:["Identifier le module muet (vue Troubleshooting écran)","Vérifier l'alimentation du module (≈24V à confirmer)","Contrôler connecteurs + continuité du segment de bus","Vérifier les terminators aux extrémités"]},
@@ -1073,6 +1113,281 @@ const KEYWORD_MAP = [
    composants:[],
    demarche:["Identifier quel transducteur/capteur est concerné par le message","Vérifier son connecteur (oxydation, faux contact)","Contrôler son alimentation et son signal","Comparer la valeur lue à la valeur réelle"]}
 ];
+
+/* ============================================================
+   REGISTRE DES MACHINES — structure évolutive multi-machines
+   Le DP1500i est complet ; le D25KS est vide, prêt à remplir.
+   ============================================================ */
+/* ---- Données D25KS (source: formation électrique Sandvik 25_245electric, juillet 2007) ---- */
+const D25_COMPOSANTS = [
+  {ref:"Compresseur 2 étages", nom:"Compresseur Sullair à vis rotative bi-étagé", cat:"Compresseur", val:"1000-1160 cfm @ 350 psi (21.1 bar) @ 1800 rpm", loc:"Groupe compresseur",
+   desc:"Compresseur Sullair multi-usage : mode basse pression (rotary) ou haute pression. Rotors mâle/femelle, noyé d'huile. Valeurs : manuel de service D25KS (série 733801).", src:"doc"},
+  {ref:"SPEC machine", nom:"Spécifications D25KS (rappel)", cat:"Moteur", val:"voir détail", loc:"Manuel de service",
+   desc:"Moteur Cummins ou Caterpillar @ 1800 rpm. Réservoir hydraulique 200 gal US (757 L). Rotation 142 rpm @ 48 500 in-lbs (5 481 Nm). Feed : 1 vérin + chaînes. 2 vitesses de translation. Source : manuel de service D25KS (série 733801, rév. 12-16).", src:"doc"},
+  {ref:"Réglages (manuel)", nom:"Procédures de réglage référencées", cat:"Hydraulique", val:"factory set", loc:"Manuel de service",
+   desc:"⚠️ Pressions compresseur/hydraulique réglées en usine — à n'ajuster que par personnel formé Sandvik. Procédures : holding valve 008737-002, relief vent 001670-002, air inlet 010119-000, hydraulic tank 004756-000, chain 001085-001. Source : manuel de service D25KS.", src:"doc"},
+  {ref:"VALEURS pression rotation", nom:"Pression rotation — référence", cat:"Rotation", val:"2600-2850 psi (180-197 bar)", loc:"Circuit rotation",
+   desc:"Rotation calibrée à 2600-2850 psi. A-port relief (non réglable, sous le HP plug) préréglé à 3675 psi (250 bar). Source : manuel de service D25KS.", src:"doc"},
+  {ref:"VALEURS pression feed", nom:"Pressions feed — références", cat:"Feed", val:"fast 3500 psi · slow relief 3600 psi", loc:"Circuit feed",
+   desc:"Compensateur fast feed pump : 3500 psi (242 bar). Slow feed relief (port 9) : 3600 psi (248 bar), réglé 100 psi au-dessus du fast feed. Holding valve (counterbalance) : ~1000 psi (70 bar). Source : manuel de service D25KS.", src:"doc"},
+  {ref:"VALEURS pression air", nom:"Pressions circuit air — références", cat:"Compresseur", val:"HP 350 · LP 150-160 psi", loc:"Circuit air",
+   desc:"Régulateur HP : 350 psi (24 bar). Régulateur LP : 150-160 psi (10.3-11 bar). Blowdown s'ouvre sous 140 psi. Dust collector : 50 psi (3.5 bar). Soupape sûreté : 400 psi. Source : manuel de service D25KS.", src:"doc"},
+  {ref:"VALEURS charge/inlet", nom:"Charge & inlet relief — références", cat:"Hydraulique", val:"charge 150 · inlet 2500 psi", loc:"Circuits hydr.",
+   desc:"Charge system relief (HPR/HPS back pressure) : 150 psi (10 bar). Inlet section relief : typiquement 2500 psi (172 bar). Source : manuel de service D25KS.", src:"doc"},
+  {ref:"Safety Relief Valve", nom:"Soupape de sûreté", cat:"Compresseur", val:"400 psi (27.5 bar)", loc:"Receiver tank",
+   desc:"Soupape de décharge ASME, préréglée à 400 psi. Remplacer si exposée à des surpressions répétées. Source : formation air D25.", src:"doc"},
+  {ref:"Receiver tank (tee tank)", nom:"Réservoir air/huile (séparateur)", cat:"Compresseur", val:"sous pression", loc:"Compresseur",
+   desc:"Réservoir récepteur air/huile, fait aussi séparateur. Source : formation air D25.", src:"doc"},
+  {ref:"Separator element", nom:"Élément séparateur air/huile", cat:"Compresseur", val:"", loc:"Receiver tank",
+   desc:"Sépare l'huile microscopique de l'air comprimé. A un indicateur d'encrassement. Source : formation air D25.", src:"doc"},
+  {ref:"Oil Stop Valve", nom:"Valve d'arrêt d'huile", cat:"Compresseur", val:"", loc:"Distribution huile compresseur",
+   desc:"Contrôle la distribution d'huile compresseur. Source : formation air D25.", src:"doc"},
+  {ref:"CAT", nom:"Compressor Air Temp switch", cat:"Compresseur", val:"265°", loc:"Compresseur",
+   desc:"Switch de sécurité température air compresseur (shutdown si dépassé). Source : formation air D25.", src:"doc"},
+  {ref:"CIT", nom:"Compressor Inlet Temp switch", cat:"Compresseur", val:"250°", loc:"Admission compresseur",
+   desc:"Switch de sécurité température d'admission compresseur. Source : formation air D25.", src:"doc"},
+  {ref:"COP", nom:"Compressor Oil Pressure switch", cat:"Compresseur", val:"90°", loc:"Circuit huile compresseur",
+   desc:"Switch de sécurité pression d'huile compresseur. Source : formation air D25.", src:"doc"},
+  {ref:"Air filtration Donaldson", nom:"Filtration d'air + indicateur restriction", cat:"Compresseur", val:"", loc:"Admission",
+   desc:"Filtres Donaldson (Donaclone précleaner + filtre primaire) avec indicateur de restriction. Source : formation air D25.", src:"doc"},
+  {ref:"Single inlet valve", nom:"Valve d'admission unique compresseur", cat:"Compresseur", val:"", loc:"Entrée compresseur",
+   desc:"Valve d'admission d'air du compresseur. Source : formation air D25.", src:"doc"},
+  {ref:"Scavenge / oil return", nom:"Système retour d'huile (scavenge)", cat:"Compresseur", val:"strainer + orifice", loc:"Compresseur",
+   desc:"Récupère l'huile via strainer et orifice (différentiel de pression). Source : formation air D25.", src:"doc"},
+  {ref:"AKG coolers", nom:"Refroidisseurs (moteur/air/compresseur/hydr.)", cat:"Refroidissement", val:"", loc:"Bloc refroidissement",
+   desc:"Refroidisseurs aluminium soudés, ventilateur à pales acier entraîné par moteur hydraulique. Source : formation air D25.", src:"doc"},
+  {ref:"025411-001", nom:"Schéma air (starting/monitoring/safety)", cat:"Schémas", val:"", loc:"Doc",
+   desc:"Schéma des circuits démarrage, surveillance, sécurité et contrôle d'air. Source : formation air D25.", src:"doc"},
+  {ref:"Butterfly inlet valve", nom:"Vanne papillon d'admission + control cylinder", cat:"Compresseur", val:"", loc:"Admission compresseur",
+   desc:"Régule l'admission d'air. Pilotée par un control cylinder (vérin). Source : schémas circuit air D25.", src:"doc"},
+  {ref:"Minimum pressure valve", nom:"Valve de pression minimale", cat:"Compresseur", val:"", loc:"Sortie receiver",
+   desc:"Maintient une pression minimale dans le receiver. Source : schémas circuit air D25.", src:"doc"},
+  {ref:"Service valve", nom:"Valve de service (air outlet)", cat:"Compresseur", val:"", loc:"Sortie air",
+   desc:"Vanne de sortie d'air de service. Source : schémas circuit air D25.", src:"doc"},
+  {ref:"Final blowdown valve", nom:"Valve de purge finale", cat:"Compresseur", val:"", loc:"Receiver",
+   desc:"Purge le receiver à l'arrêt. Source : schémas circuit air D25.", src:"doc"},
+  {ref:"Running blowdown valve", nom:"Valve de purge en marche", cat:"Compresseur", val:"", loc:"Circuit air",
+   desc:"Purge pendant le mode unload (foreuse tourne sans forer). Source : schémas circuit air D25.", src:"doc"},
+  {ref:"LP regulator", nom:"Régulateur basse pression", cat:"Compresseur", val:"PR / IN / OUT", loc:"Circuit air",
+   desc:"Régule la pression d'air en mode forage basse pression (LP / rotary). Source : schémas circuit air D25.", src:"doc"},
+  {ref:"HP regulator", nom:"Régulateur haute pression", cat:"Compresseur", val:"PR / IN / OUT", loc:"Circuit air",
+   desc:"Régule la pression d'air en mode forage haute pression (HP / DTH). Source : schémas circuit air D25.", src:"doc"},
+  {ref:"Solenoid selector valves", nom:"Électrovannes sélectrices de mode (×2)", cat:"Compresseur", val:"24 VDC", loc:"Circuit air",
+   desc:"2 électrovannes 24 V qui basculent entre unload / LP / HP. Si la machine ne passe pas en HP : suspecter ces solénoïdes ou leur commande. Source : schémas circuit air D25.", src:"doc"},
+  {ref:"Oil cooler (compresseur)", nom:"Refroidisseur d'huile compresseur", cat:"Refroidissement", val:"CR/CD · 15 PSI", loc:"Circuit huile compr.",
+   desc:"Refroidit l'huile du compresseur. Source : schémas circuit air D25.", src:"doc"},
+  {ref:"Thermal control valve", nom:"Valve thermostatique (huile compr.)", cat:"Compresseur", val:"125°F · bypass 15 PSI", loc:"Circuit huile compr.",
+   desc:"Dirige l'huile vers le cooler quand chaude (125°F), bypass 15 PSI. Source : schémas circuit air D25.", src:"doc"},
+  {ref:"Oil filter (compresseur)", nom:"Filtre à huile compresseur", cat:"Compresseur", val:"bypass 25 PSI", loc:"Circuit huile compr.",
+   desc:"Filtre l'huile du compresseur, clapet bypass à 25 PSI si colmaté. Source : schémas circuit air D25.", src:"doc"},
+  {ref:"ACB", nom:"Alternator Circuit Breaker", cat:"Électrique", val:"", loc:"EJB (engine JB)",
+   desc:"Disjoncteur de l'alternateur. Source : formation électrique D25.", src:"doc"},
+  {ref:"BAT", nom:"Batterie / BDS", cat:"Électrique", val:"", loc:"EJB",
+   desc:"Batterie et sectionneur. Source : formation électrique D25.", src:"doc"},
+  {ref:"MR", nom:"Main Relay (relais principal)", cat:"Électrique", val:"", loc:"CJB (cabin JB)",
+   desc:"Relais principal d'alimentation. Source : formation électrique D25.", src:"doc"},
+  {ref:"MCB", nom:"Main Circuit Breaker", cat:"Électrique", val:"", loc:"EJB",
+   desc:"Disjoncteur principal. Source : formation électrique D25.", src:"doc"},
+  {ref:"FOS", nom:"Feed Override Solenoid", cat:"Feed", val:"", loc:"Mât / hydr.",
+   desc:"Solénoïde de contournement (override) du feed. Source : formation électrique D25.", src:"doc"},
+  {ref:"PVS", nom:"Pump Vent Solenoid", cat:"Hydraulique", val:"", loc:"Pompe",
+   desc:"Solénoïde d'aération de pompe. Source : formation électrique D25.", src:"doc"},
+  {ref:"FVS", nom:"Feed Vent Solenoid", cat:"Feed", val:"", loc:"Mât",
+   desc:"Solénoïde de vidange/aération feed. Source : formation électrique D25.", src:"doc"},
+  {ref:"HVS", nom:"Hydraulic Vent Solenoid", cat:"Hydraulique", val:"", loc:"Armoire hydr.",
+   desc:"Solénoïde d'aération hydraulique. Source : formation électrique D25.", src:"doc"},
+  {ref:"MCS", nom:"Solénoïde MCS (D25KS)", cat:"Forage", val:"D25KS seulement", loc:"Piédestal mât / armoire hydr.",
+   desc:"Solénoïde de contrôle. Source : schéma 025381, formation électrique D25.", src:"doc"},
+  {ref:"TCS", nom:"Solénoïde TCS (D25KS)", cat:"Forage", val:"D25KS seulement", loc:"Piédestal mât / armoire hydr.",
+   desc:"Solénoïde de contrôle. Source : schéma 025381, formation électrique D25.", src:"doc"},
+  {ref:"MDS", nom:"Solénoïde MDS (D25KS)", cat:"Forage", val:"D25KS seulement", loc:"Piédestal mât / armoire hydr.",
+   desc:"Solénoïde de contrôle. Source : schéma 025381, formation électrique D25.", src:"doc"},
+  {ref:"ULR", nom:"Capteur mât (Up/Lower Right)", cat:"Mât", val:"", loc:"MJB (mast JB)",
+   desc:"Capteur de proximité du mât. Source : formation électrique D25.", src:"doc"},
+  {ref:"ENC", nom:"Encodeur mât", cat:"Mât", val:"", loc:"MJB",
+   desc:"Encodeur de position. Source : formation électrique D25.", src:"doc"},
+  {ref:"FCS", nom:"Feed Cylinder Sensor", cat:"Feed", val:"", loc:"MJB",
+   desc:"Capteur de cylindre de feed. Source : formation électrique D25.", src:"doc"},
+  {ref:"RLP/LLP", nom:"Proximités droite/gauche mât", cat:"Mât", val:"", loc:"MJB",
+   desc:"Capteurs de proximité (right/left loader pipe). Source : formation électrique D25.", src:"doc"},
+  {ref:"HWP", nom:"Head Water Pump / proximité", cat:"Water", val:"", loc:"Mât",
+   desc:"Source : formation électrique D25.", src:"doc"},
+  {ref:"CJB", nom:"Cabin Junction Box", cat:"Électrique", val:"", loc:"Cabine",
+   desc:"Boîte de jonction cabine (contient MR, HIR, FFR, RLT, VC…). Source : formation électrique D25.", src:"doc"},
+  {ref:"EJB", nom:"Engine Junction Box", cat:"Électrique", val:"", loc:"Moteur",
+   desc:"Boîte de jonction moteur (ACB, MCB, SMS1, ER/DTS…). Source : formation électrique D25.", src:"doc"},
+  {ref:"MJB", nom:"Mast Junction Box", cat:"Mât", val:"", loc:"Mât",
+   desc:"Boîte de jonction du mât (ULR, ENC, FCS, PVS, capteurs…). Source : formation électrique D25.", src:"doc"},
+  {ref:"025381", nom:"Schéma électrique principal", cat:"Schémas", val:"", loc:"Doc",
+   desc:"Schéma de référence D25KS/D245S (neutral/start safety, control mode, solénoïdes, tram interlock). Autres : 006832, 016179, 016499, 019702, 020627, 020744, 022532, 025411.", src:"doc"},
+  {ref:"Rotation control 003.500", nom:"Valve de contrôle de rotation", cat:"Rotation", val:"CW=+pression, CCW=−pression", loc:"Bloc rotation",
+   desc:"Valve de commande de rotation série 003.500. Sens horaire (CW) augmente la pression, anti-horaire (CCW) diminue. Source : formation rotation/propel D25.", src:"doc"},
+  {ref:"Torque control solenoid", nom:"Électrovanne de contrôle de couple", cat:"Rotation", val:"", loc:"Pompe rotation",
+   desc:"Contrôle de couple = électrovanne sur la pompe de rotation (port V). Affecte la vitesse de rotation. Source : formation rotation/propel D25.", src:"doc"},
+  {ref:"Mode control solenoid", nom:"Électrovanne de commande de mode", cat:"Propel/Rotation", val:"", loc:"Pompe",
+   desc:"Bascule entre mode forage et mode propel. Source : formation rotation/propel D25.", src:"doc"},
+  {ref:"DPS", nom:"Capteur poste opérateur (Propel/Tram)", cat:"Propel", val:"", loc:"Console",
+   desc:"Pousser avant = avancer, tirer = reculer. Actif en mode Propel/tram. Source : formation rotation/propel D25.", src:"doc"},
+  {ref:"LSV", nom:"Lower Stacker Valve", cat:"Stacker", val:"schéma hydr.", loc:"Armoire hydr.",
+   desc:"Valve d'empileur inférieur (accessoire). Source : formation LSV D25 (livres hydr. 4/5).", src:"doc"},
+  {ref:"MSV", nom:"Middle Stacker Valve", cat:"Stacker", val:"schéma 019681", loc:"Armoire hydr.",
+   desc:"Valve d'empileur moyen (accessoire). Source : formation MSV/USV D25.", src:"doc"},
+  {ref:"USV", nom:"Upper Stacker Valve", cat:"Stacker", val:"schéma 019681", loc:"Armoire hydr.",
+   desc:"Valve d'empileur supérieur (accessoire). Source : formation MSV/USV D25.", src:"doc"},
+  {ref:"HPR", nom:"High Pressure Return", cat:"Hydraulique", val:"", loc:"Circuit hydr.",
+   desc:"Circuit de retour haute pression. Source : formation hydraulique D25.", src:"doc"},
+  {ref:"Rotation pump", nom:"Pompe de rotation", cat:"Rotation", val:"6.0 cu.in · 50 GPM · 3500 PSI · 2076 RPM", loc:"Groupe hydr.",
+   desc:"Pompe de rotation. Valeurs confirmées schéma hydraulique 016259-001 (D25KS High HP).", src:"doc"},
+  {ref:"Fast feed pump", nom:"Pompe fast feed", cat:"Feed", val:"6.0 cu.in · 50 GPM · 3500 PSI · 2076 RPM", loc:"Groupe hydr.",
+   desc:"Pompe d'avance rapide (aussi mise à niveau). Valeurs schéma 016259-001.", src:"doc"},
+  {ref:"Lift-off / Feed sequence", nom:"Séquence lift-off / feed", cat:"Feed", val:"3600 PSI", loc:"Bloc feed",
+   desc:"Pression de séquence lift-off / feed. Source : schéma 016259-001.", src:"doc"},
+  {ref:"Rotation pressure", nom:"Capteur pression rotation", cat:"Rotation", val:"", loc:"Bloc rotation",
+   desc:"Transducteur de pression de rotation (MICRO). Source : schéma 016259-001.", src:"doc"},
+  {ref:"Hydraulic pressure", nom:"Capteur pression hydraulique", cat:"Hydraulique", val:"", loc:"Bloc feed",
+   desc:"Transducteur de pression hydraulique du circuit feed. Source : schéma 016259-001.", src:"doc"},
+  {ref:"Hot oil shuttle valve", nom:"Valve navette huile chaude", cat:"Hydraulique", val:"4 GPM · 15-150 PSI", loc:"Circuits track/rotation",
+   desc:"Évacue l'huile chaude des circuits. Source : schéma 016259-001.", src:"doc"},
+  {ref:"Left/Right track motor", nom:"Moteurs de translation G/D + frein", cat:"Propel", val:"frein desserré hydr.", loc:"Châssis",
+   desc:"Moteurs de chenille gauche/droit avec frein (desserré hydrauliquement, serré ressort). Source : schéma 016259-001.", src:"doc"},
+  {ref:"Motor displacement solenoid", nom:"Solénoïde de cylindrée moteur", cat:"Propel", val:"D25KS 2 vitesses", loc:"Moteurs translation",
+   desc:"Change la cylindrée des moteurs de translation (2 vitesses sur D25KS). Source : schéma 016259-001.", src:"doc"},
+  {ref:"Frein translation", nom:"Frein de propulsion (ressort/hydraulique)", cat:"Propel", val:"desserré hydr., serré ressort", loc:"Moteurs translation",
+   desc:"Frein desserré hydrauliquement, serré par ressort (sécurité). Si la machine ne bouge pas, vérifier que le frein se desserre. Source : formation rotation/propel D25.", src:"doc"}
+];
+
+const D25_KEYWORD_MAP = [
+  {sys:"Électrique / Alimentation", mots:["electric","electrique","électrique","power","courant","battery","batterie","alternator","alternateur","relay","relais","breaker","disjoncteur","fuse","fusible","acb","mcb","mr","bat"],
+   composants:["BAT","ACB","MCB","MR","BDS"],
+   demarche:["Vérifier la batterie (BAT) et le sectionneur (BDS)","Contrôler les disjoncteurs ACB et MCB dans l'EJB","Vérifier le relais principal MR dans le CJB","Contrôler les boîtes de jonction (EJB, CJB, MJB)","Se référer au schéma électrique 025381"]},
+  {sys:"Tram interlock / déplacement", mots:["tram","tramming","tramway","propel","deplacement","déplacement","translation","chenille","chenilles","interlock","alarme tram","propulsion","bouge"],
+   composants:["RRP","RLP","LLP","FCS"],
+   demarche:["Vérifier l'interlock de tram (sécurité translation, schéma 025381)","Contrôler les alarmes de tram (obligatoires sur cette machine)","Vérifier les capteurs de proximité (RRP, RLP, LLP)","Contrôler la commande de propulsion (propel)","Vérifier les moteurs de translation gauche/droit"]},
+  {sys:"Feed (avance)", mots:["feed","avance","fast feed","fastfeed","forward","backward","recul","fos","fvs","fcs"],
+   composants:["FOS","FVS","FCS"],
+   demarche:["Vérifier le solénoïde override feed (FOS)","Contrôler le capteur de cylindre feed (FCS)","Vérifier le solénoïde FVS","Contrôler le circuit fast feed (doc fastfeed/propel)"]},
+  {sys:"Forage (solénoïdes MCS/TCS/MDS)", mots:["mcs","tcs","mds","drilling","forage","rotation","percussion","solenoid","solenoide","solénoïde"],
+   composants:["MCS","TCS","MDS"],
+   demarche:["Identifier le solénoïde concerné (MCS, TCS ou MDS — D25KS seulement)","Vérifier la commande électrique du solénoïde (piédestal mât / armoire hydraulique)","Contrôler le schéma 025381 pour le câblage","Vérifier l'action hydraulique correspondante"]},
+  {sys:"Mât / capteurs", mots:["mat","mât","mast","ulr","enc","encodeur","encoder","proximity","proximite","proximité","capteur mat","fcs"],
+   composants:["ULR","ENC","FCS","RLP","LLP","MJB"],
+   demarche:["Identifier le capteur du mât concerné (ULR, ENC, FCS, RLP/LLP)","Vérifier le connecteur dans la MJB (mast junction box)","Contrôler l'alimentation et le signal du capteur","Vérifier le câblage selon le schéma 025381"]},
+  {sys:"Rotation", mots:["rotation","rotate","tourne","couple","torque","003.500","tete","tête","drill head","rpm"],
+   composants:["Rotation control 003.500","Torque control solenoid"],
+   demarche:["Vérifier la valve de contrôle de rotation (003.500) : CW augmente / CCW diminue la pression","Contrôler l'électrovanne de contrôle de couple (sur la pompe de rotation)","Si la rotation est lente ou faible : vérifier la pression de la pompe de rotation","Contrôler le mode actif (forage vs propel) via l'électrovanne de mode"]},
+  {sys:"Propel / déplacement", mots:["propel","propulsion","tram","tramming","deplace","déplace","translation","chenille","chenilles","avance machine","recule machine","vitesse","frein","brake","dps"],
+   composants:["DPS","Mode control solenoid","Frein translation","MDS"],
+   demarche:["Vérifier la commande poste opérateur (DPS) : avant=avancer, arrière=reculer","Contrôler que le frein de translation se desserre (desserré hydr., serré par ressort)","Vérifier l'électrovanne de mode (propel vs forage)","Sur D25KS : contrôler le solénoïde de déplacement moteur (MDS, 2 vitesses)","Vérifier le tram interlock (schéma 025381) et les alarmes de tram (obligatoires)"]},
+  {sys:"Stacker (empileur)", mots:["stacker","empileur","lsv","msv","usv","chargeur","loader","accessoire"],
+   composants:["LSV","MSV","USV"],
+   demarche:["Identifier la valve concernée : LSV (inférieur), MSV (moyen), USV (supérieur)","Si le chargeur fonctionne lentement : vérifier le réglage de la valve de décharge","Contrôler le distributeur à tiroir (peut être dur à déplacer si encrassé)","Se référer au schéma hydraulique 019681"]},
+  {sys:"Mise à niveau (jacks)", mots:["niveau","level","jack","verin","vérin","mise a niveau","leveling","horizon"],
+   composants:[],
+   demarche:["La machine se met à niveau via la pompe fast feed et les vérins de mise à niveau","Vérifier les 3 vérins de mise à niveau (piston pilote + clapets anti-retour)","Contrôler la pompe fast feed","Vérifier les capteurs d'inclinaison/niveau"]},
+  {sys:"Refroidissement", mots:["cooling","refroidissement","temperature","température","cooler","radiateur","overheat","surchauffe","fan","ventilateur"],
+   composants:[],
+   demarche:["Vérifier le circuit de refroidissement (doc cooling à intégrer)","Contrôler les capteurs de température","Vérifier le ventilateur et le radiateur"]},
+  {sys:"Air haute pression / compresseur", mots:["air","hpair","compresseur","compressor","pression air","flushing","balayage","separateur","séparateur","separator","huile compresseur","cat","cit","cop","relief","surpression","surchauffe compresseur","unload","load","lp mode","hp mode","haute pression","basse pression","blowdown","regulator","regulateur","papillon","butterfly","selector","selecteur"],
+   composants:["Solenoid selector valves","LP regulator","HP regulator","Safety Relief Valve","Separator element","Oil Stop Valve","CAT","CIT","COP","Butterfly inlet valve"],
+   demarche:["Si la machine ne passe pas en HP ou reste en unload : vérifier les 2 électrovannes sélectrices de mode (24 V) et leur commande","Contrôler les régulateurs LP et HP","Vérifier la vanne papillon d'admission et son control cylinder","Si arrêt compresseur : vérifier les switches de sécurité CAT (temp air), CIT (temp admission), COP (pression huile)","Contrôler la soupape de sûreté (400 psi / 27.5 bar)","Vérifier le niveau/circulation d'huile (Oil Stop Valve), l'élément séparateur et la filtration Donaldson","Se référer aux schémas circuit air (025411-001)"]}
+];
+
+const MACHINES = {
+  "dp1500i": {
+    id:"dp1500i", nom:"DP1500i", moteur:"Caterpillar", module:"Électricité & Électronique",
+    BUS:DP_BUS, COMPOSANTS:DP_COMPOSANTS, MODULES:DP_MODULES,
+    CODES:DP_CODES, SYMPTOMES:DP_SYMPTOMES, KEYWORD_MAP:DP_KEYWORD_MAP,
+    tabs:[
+      {v:"assistant", ic:"💬", label:"Assistant"},
+      {v:"codes", ic:"⚠️", label:"Codes écran"},
+      {v:"symptomes", ic:"🔍", label:"Symptômes"},
+      {v:"modules", ic:"🔧", label:"Modules"},
+      {v:"bus", ic:"🔌", label:"Réseaux bus"},
+      {v:"composants", ic:"🧩", label:"Composants"}
+    ]
+  },
+  "d25ks": {
+    id:"d25ks", nom:"D25KS", moteur:"Cummins", module:"Machine électromécanique",
+    BUS:[], COMPOSANTS:D25_COMPOSANTS, MODULES:[], CODES:[], SYMPTOMES:[], KEYWORD_MAP:D25_KEYWORD_MAP,
+    tabs:[
+      {v:"assistant", ic:"💬", label:"Assistant"},
+      {v:"codes", ic:"⚠️", label:"Pannes"},
+      {v:"symptomes", ic:"🔍", label:"Symptômes"},
+      {v:"ss-moteur", ic:"🛢", label:"Moteur", cats:["Moteur"]},
+      {v:"ss-compresseur", ic:"💨", label:"Compresseur", cats:["Compresseur","Refroidissement"]},
+      {v:"ss-hydraulique", ic:"💧", label:"Hydraulique", cats:["Hydraulique","Rotation","Feed","Propel","Propel/Rotation","Stacker"]},
+      {v:"ss-electrique", ic:"⚡", label:"Électrique", cats:["Électrique","Mât","Water","Forage"]},
+      {v:"composants", ic:"🧩", label:"Composants"}
+    ]
+  }
+};
+let TAB_CFG = {}; // map view -> config (pour les vues sous-système)
+
+let activeMachine = "dp1500i";
+// variables actives — pointent vers la machine sélectionnée
+let BUS, COMPOSANTS, MODULES, CODES, SYMPTOMES, KEYWORD_MAP;
+function renderTabs(m){
+  TAB_CFG = {};
+  const tabsEl=document.getElementById("tabs");
+  tabsEl.innerHTML = m.tabs.map((t,i)=>{
+    TAB_CFG[t.v]=t;
+    return `<div class="tab${i===0?' active':''}" data-view="${t.v}"><span class="ic">${t.ic}</span>${t.label}</div>`;
+  }).join("");
+  // (ré)attacher les clics
+  tabsEl.querySelectorAll(".tab").forEach(tab=>tab.onclick=()=>switchView(tab.dataset.view));
+}
+
+function renderSubsystem(view, filter=""){
+  const cfg=TAB_CFG[view]; if(!cfg)return;
+  const cats=cfg.cats||[];
+  const f=filter.trim();
+  let list=COMPOSANTS.filter(c=>cats.includes(c.cat));
+  if(f) list=list.filter(c=>fuzzyMatch(f, c.ref+" "+c.nom+" "+c.loc+" "+c.desc));
+  document.getElementById("ss-title").textContent = cfg.label;
+  document.getElementById("ss-count").textContent = list.length+" élément"+(list.length>1?"s":"");
+  document.getElementById("ss-intro").textContent = list.length
+    ? `Composants du sous-système « ${cfg.label} » confirmés par les schémas Sandvik.`
+    : `Aucun composant « ${cfg.label} » encore documenté. Envoie les documents de ce système pour le remplir.`;
+  document.getElementById("ss-list").innerHTML = list.length ? list.map(c=>`
+    <div class="card flat">
+      <div class="card-top">
+        <span class="tag tnum">${c.ref}</span>
+        <div style="flex:1">
+          <div class="card-title" style="font-size:14px">${c.nom}</div>
+          <div class="card-meta">${c.loc}${c.val?' · '+c.val:''}</div>
+        </div>
+        ${srcBadge(c.src)}
+      </div>
+      <div style="font-size:12.5px;color:var(--txt-dim);margin-top:9px;line-height:1.45">${c.desc}</div>
+    </div>`).join("") : emptyState("Vide","À remplir avec les documents de ce système");
+}
+
+function loadMachine(id){
+  activeMachine = id;
+  const m = MACHINES[id];
+  BUS=m.BUS; COMPOSANTS=m.COMPOSANTS; MODULES=m.MODULES;
+  CODES=m.CODES; SYMPTOMES=m.SYMPTOMES; KEYWORD_MAP=m.KEYWORD_MAP;
+  // mettre à jour l'en-tête
+  document.querySelector(".h-sub").textContent = m.module + " · v0.1";
+  document.getElementById("machine-name").textContent = m.nom;
+  // onglets adaptés à la machine
+  renderTabs(m);
+  // re-render les vues communes
+  renderCodes();renderSymptomes();renderComposants();
+  if(MODULES&&MODULES.length)renderModules();
+  if(BUS&&BUS.length)renderBus();
+  // afficher l'assistant par défaut
+  switchView("assistant");
+  // reset assistant
+  const chat=document.getElementById("asst-chat");
+  if(chat){chat.innerHTML="";
+    if(id==='d25ks'){
+      addAImsg(`Machine active : <b>${m.nom}</b> (moteur ${m.moteur}, machine électromécanique : relais, fusibles, capteurs — pas de bus CAN).<br><br>Décris une panne avec tes mots (rotation, propel, feed, électrique, solénoïde MCS/TCS…) et je t'oriente vers les composants à vérifier.`);
+    } else {
+      addAImsg(`Machine active : <b>${m.nom}</b>. Décris-moi la panne avec tes mots, ou un repère (Y3B, F17, stabilizer…). Tu peux changer de machine en haut à droite.`);
+    }
+  }
+}
 
 function reasonedAnalysis(query){
   const q=norm(query);
@@ -1239,7 +1554,9 @@ ${buildKnowledgeBase()}`;
 }
 
 updateAsstMode();
-addAImsg(`Bonjour 👋 Je suis l'assistant de dépannage du DP1500i. Décris-moi la panne avec tes mots : ce que tu vois à l'écran, ce qui ne fonctionne pas, ou un repère (Y3B, F17, stabilizer…). Je cherche dans toute la base et te propose les causes probables.`);
+/* === INITIALISATION (toutes les données et fonctions sont déclarées) === */
+loadMachine("dp1500i");                 // charge la machine par défaut + render + message
+document.querySelector(".search-wrap").style.display="none"; // assistant actif au démarrage
 </script>
 </body>
 </html>
