@@ -236,6 +236,9 @@ main{padding:4px 16px 40px}
 .ai-cause-freq.f-high{background:rgba(239,68,68,.14);color:#fca5a5}
 .ai-cause-freq.f-low{background:rgba(100,116,139,.18);color:var(--txt-dim)}
 .ai-cause-more{font-size:11.5px;color:var(--accent);margin-top:9px;font-weight:600}
+.reason-comps{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.reason-chip{font-size:12px;font-weight:700;padding:3px 9px;border-radius:7px;
+  background:rgba(56,189,248,.12);color:#7dd3fc;border:1px solid rgba(56,189,248,.25)}
 .ai-empty{font-size:13px;color:var(--txt-dim);line-height:1.5}
 .asst-input{display:flex;gap:9px;align-items:flex-end;position:sticky;bottom:0;
   background:var(--bg);padding:10px 0 4px}
@@ -1012,11 +1015,21 @@ function saveApiKey(){
 }
 
 /* --- Recherche locale intelligente (niveau 1) --- */
+const STOP=["error","fault","probleme","problème","defaut","défaut","alarm","alarme","de","la","le","du","des","un","une","pour","sur","trop","too","high","low","not","no"];
+function titleOverlap(query, title){
+  // combien de mots SIGNIFICATIFS du titre apparaissent dans la requête
+  const q=norm(query);
+  const tWords=[...new Set(norm(title).split(" ").filter(w=>w.length>2&&!STOP.includes(w)))];
+  if(!tWords.length) return 0;
+  let hit=0;
+  tWords.forEach(t=>{ if(q.includes(t) || q.split(" ").some(w=>w.length>3&&lev(w,t)<=1)) hit++; });
+  return hit/tWords.length; // ratio 0..1
+}
 function scoreItem(query, hayParts){
-  const q=norm(query);const words=q.split(" ").filter(w=>w.length>2);
+  const q=norm(query);const words=q.split(" ").filter(w=>w.length>2&&!STOP.includes(w));
   let score=0;
   hayParts.forEach((part,wi)=>{
-    const weight=[3,2,1][wi]||1; // titre pèse plus
+    const weight=[3,2,1][wi]||1;
     const h=norm(part);
     words.forEach(w=>{
       if(h.includes(w))score+=weight;
@@ -1025,21 +1038,71 @@ function scoreItem(query, hayParts){
   });
   return score;
 }
+/* ---- Carte de connaissances par sous-système (analyse raisonnée) ----
+   Quand aucune fiche ne correspond, l'assistant décompose le message
+   d'écran en mots-clés et oriente vers le bon sous-système + composants. */
+const KEYWORD_MAP = [
+  {sys:"Stabilisateur", mots:["stabiliser","stabilizer","stab"],
+   composants:["B125P","Y125","Y126","Filter bypass switch"],
+   demarche:["Vérifier le transducteur de pression B125P (alim + signal + connecteur)","Tester la valve Y125 (bobine + action)","Contrôler le filtre stabilisateur et son bypass switch","Relancer le calibrage du stabilisateur"]},
+  {sys:"Feed (avance)", mots:["feed","avance","forward","backward","recul"],
+   composants:["Y3A","Y3B","Y11","SFE"],
+   demarche:["Identifier le sens en défaut (forward Y3A / backward Y3B)","Mesurer la résistance de la bobine concernée, comparer à la valve saine","Vérifier connecteur + câble de la valve","Contrôler le capteur d'extension SFE et re-calibrer le feed"]},
+  {sys:"Rotation", mots:["rotation","rotate","tourne","drilling joystick"],
+   composants:["DM","Y1"],
+   demarche:["Vérifier si l'erreur vient vraiment de la rotation ou d'un autre bloc (ex: stabilisateur)","Contrôler les valves et capteurs du circuit rotation","Vérifier le Drilling Master (DM) et ses connexions"]},
+  {sys:"Percussion", mots:["percussion","impact","hammer","frappe"],
+   composants:["Y1","B1P"],
+   demarche:["Contrôler la valve on/off percussion Y1","Vérifier le transducteur de pression percussion B1P","Contrôler les pressions de tarage (voir doc hydraulique)"]},
+  {sys:"Flushing (air)", mots:["flushing","flush","air","balayage"],
+   composants:["Y10","Compressor air intake valve"],
+   demarche:["Vérifier la flushing valve Y10 (solénoïde + action)","Contrôler la valve d'admission d'air compresseur","Vérifier la pression d'air et les capteurs associés"]},
+  {sys:"Water injection", mots:["water","eau","injection","b210p"],
+   composants:["B210P.1"],
+   demarche:["Vérifier le moniteur de pression d'eau B210P.1 (signal + connecteur)","Contrôler la pompe à eau et le débit","Vérifier les filtres du circuit d'eau"]},
+  {sys:"Communication / CAN", mots:["communication","com","can","module","missing","bus","timeout"],
+   composants:["SM","FCC","RCC","DM","Terminator"],
+   demarche:["Identifier le module muet (vue Troubleshooting écran)","Vérifier l'alimentation du module (≈24V à confirmer)","Contrôler connecteurs + continuité du segment de bus","Vérifier les terminators aux extrémités"]},
+  {sys:"Moteur (J1939)", mots:["engine","moteur","j1939","ecm","shutdown","rpm","diesel"],
+   composants:["ECM","FCC","RCC","PETU"],
+   demarche:["Vérifier si les données moteur s'affichent (régime, T°)","Contrôler la liaison J1939 ECM ↔ FCC/RCC","Vérifier alim et masses de l'ECM","Lire les fault codes moteur diesel (manuel Caterpillar)"]},
+  {sys:"Alimentation / Démarrage", mots:["start","starting","demarrage","démarrage","power","courant","fuse","fusible","emergency","battery","batterie"],
+   composants:["F17","MRJB","K10","Cosse batterie"],
+   demarche:["Vérifier la tension batterie et les cosses (fissure, oxydation, serrage)","Contrôler les fusibles dans le MRJB","Vérifier les circuits emergency stop NC1/NC2","Isoler les branches optionnelles non utilisées (ex: ACU/F17)"]},
+  {sys:"Pression / capteur", mots:["pressure","pression","transducer","transducteur","sensor","capteur","error","fault","défaut","probleme","problème"],
+   composants:[],
+   demarche:["Identifier quel transducteur/capteur est concerné par le message","Vérifier son connecteur (oxydation, faux contact)","Contrôler son alimentation et son signal","Comparer la valeur lue à la valeur réelle"]}
+];
+
+function reasonedAnalysis(query){
+  const q=norm(query);
+  const hits=[];
+  KEYWORD_MAP.forEach(km=>{
+    const matched = km.mots.filter(m=>q.includes(norm(m)));
+    if(matched.length) hits.push({...km, n:matched.length});
+  });
+  hits.sort((a,b)=>b.n-a.n);
+  return hits.slice(0,2); // 1-2 sous-systèmes les plus probables
+}
+
 function localAnalyze(query){
   const results=[];
   CODES.forEach((c,i)=>{
-    const s=scoreItem(query,[c.code+" "+(c.alt||""), c.sys+" "+c.desc,
-      (c.causes||[]).map(x=>x.name+" "+x.check).join(" ")]);
-    if(s>0)results.push({type:"code",idx:i,name:c.code,why:c.causes[0].name,score:s});
+    const ov=Math.max(titleOverlap(query, c.code), titleOverlap(query, c.alt||""));
+    const bodyScore=scoreItem(query,["", c.sys+" "+c.desc, (c.causes||[]).map(x=>x.name).join(" ")]);
+    const s=ov*10+bodyScore;
+    if(s>0)results.push({type:"code",idx:i,name:c.code,why:c.causes[0].name,score:s,ov});
   });
   SYMPTOMES.forEach((sy,i)=>{
-    const s=scoreItem(query,[sy.title, sy.sys+" "+sy.desc,
-      (sy.causes||[]).map(x=>x.name).join(" ")]);
-    if(s>0)results.push({type:"symp",idx:i,name:sy.title,why:sy.causes[0].name,score:s});
+    const ov=titleOverlap(query, sy.title);
+    const bodyScore=scoreItem(query,["", sy.sys+" "+sy.desc, (sy.causes||[]).map(x=>x.name).join(" ")]);
+    const s=ov*10+bodyScore;
+    if(s>0)results.push({type:"symp",idx:i,name:sy.title,why:sy.causes[0].name,score:s,ov});
   });
   COMPOSANTS.forEach((c)=>{
-    const s=scoreItem(query,[c.ref+" "+c.nom, c.cat+" "+c.loc, c.desc]);
-    if(s>1.5)results.push({type:"comp",name:c.ref+" — "+c.nom,why:c.desc,score:s});
+    const ov=titleOverlap(query, c.ref+" "+c.nom);
+    const s=ov*10+scoreItem(query,["", c.cat+" "+c.loc, c.desc]);
+    if(s>2)results.push({type:"comp",name:c.ref+" — "+c.nom,why:c.desc,score:s,ov});
   });
   results.sort((a,b)=>b.score-a.score);
   return results.slice(0,5);
@@ -1093,22 +1156,50 @@ function askAssistant(){
   else { answerLocal(q); }
 }
 
+function reasonedBlock(hits, query){
+  return hits.map(h=>{
+    const comps = h.composants.length
+      ? `<div class="ai-causes-lbl" style="margin-top:8px">Composants à vérifier :</div>
+         <div class="reason-comps">${h.composants.map(c=>`<span class="reason-chip">${c}</span>`).join("")}</div>`
+      : "";
+    const steps = `<div class="ai-causes-lbl" style="margin-top:10px">Démarche suggérée :</div>
+      ${h.demarche.map((d,i)=>`<div class="ai-cause"><span class="ai-cause-n">${i+1}</span><div><span class="ai-cause-name" style="font-weight:550">${d}</span></div></div>`).join("")}`;
+    return `<div class="ai-result" style="cursor:default">
+      <div class="ai-result-top">
+        <span class="ai-score" style="background:rgba(245,158,11,.16);color:#fcd34d">PISTE</span>
+        <span class="ai-result-name">Sous-système : ${h.sys}</span>
+      </div>
+      ${comps}${steps}
+    </div>`;
+  }).join("");
+}
+
 function answerLocal(q){
   const res=localAnalyze(q);
-  if(res.length){
-    const top=res[0], rest=res.slice(1);
-    // le 1er résultat affiche ses causes directement
-    const intro = `D'après ta description, la piste la plus probable :`;
-    let html = intro + resultCard(top, true);
+  // une fiche est "fiable" si une bonne partie des mots de son titre matchent
+  const strong = res.filter(r=>r.ov>=0.6);
+  if(strong.length){
+    // cas 1 : on a une (ou des) fiche(s) qui correspondent vraiment
+    const top=strong[0], rest=res.slice(1,4);
+    let html = `D'après ta description, la piste la plus probable :` + resultCard(top, true);
     if(rest.length){
       html += `<div class="ai-causes-lbl" style="margin-top:14px">Autres pistes possibles :</div>`
         + rest.map(r=>resultCard(r,false)).join("");
     }
     addAImsg(html);
   } else {
-    addAImsg(`<div class="ai-empty">Je n'ai pas trouvé de correspondance directe dans la base hors-ligne. 
-      Essaie avec le message exact affiché à l'écran, ou un repère (Y3B, F17, stabilizer…). 
-      Pour les pannes nouvelles non encore documentées, signale-les à Gora : il les analysera avec les schémas Sandvik et les ajoutera à l'app.</div>`);
+    // cas 2 : message inconnu → analyse raisonnée par mots-clés
+    const hits=reasonedAnalysis(q);
+    if(hits.length){
+      addAImsg(`<div class="ai-result-why" style="margin-bottom:10px">Ce message exact n'est pas encore dans la base documentée. Mais d'après les mots-clés, voici une analyse raisonnée — <b>à confirmer sur la machine</b> :</div>
+        ${reasonedBlock(hits,q)}
+        ${res.length?`<div class="ai-causes-lbl" style="margin-top:14px">Fiches proches dans la base :</div>${res.slice(0,2).map(r=>resultCard(r,false)).join("")}`:''}
+        <div class="ai-result-why" style="margin-top:12px">⚠️ Ceci est une piste basée sur les mots du message, pas une fiche validée. Si tu trouves la vraie cause, dis-la à Gora pour l'ajouter à l'app.</div>`);
+    } else {
+      addAImsg(`<div class="ai-empty">Je n'ai pas réussi à analyser ce message. 
+        Donne-moi plus de détails : quel mouvement ou fonction est concerné (feed, rotation, percussion, eau, moteur, démarrage…), ou un repère (Y3B, F17, B125P…). 
+        Pour les pannes nouvelles, signale-les à Gora : il les analysera avec les schémas Sandvik et les ajoutera.</div>`);
+    }
   }
 }
 
