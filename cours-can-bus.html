@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0d4f4a">
+<title>Électronique du DP1500i — Capteurs, schémas & CAN bus</title>
+<style>
+  :root{
+    --bg:#0b1220; --bg2:#111c2e; --card:#16243a; --card2:#1b2c46;
+    --line:#26384f; --txt:#e8eef6; --txt-dim:#9fb0c4; --txt-faint:#6b7e96;
+    --teal:#2dd4bf; --teal-d:#0d9488; --amber:#fbbf24; --red:#f87171; --green:#4ade80;
+    --hi:#7dd3fc;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%;overflow:hidden}
+  body{background:var(--bg);color:var(--txt);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    line-height:1.6;font-size:16px;display:flex;flex-direction:column}
+
+  /* Barre d'onglets fixe en haut */
+  .tabbar{flex:none;background:linear-gradient(135deg,#0d4f4a,#0b1220);
+    border-bottom:1px solid var(--line);padding:14px 16px 0;position:relative;z-index:10}
+  .tabbar .doc-title{font-size:13px;font-weight:700;color:var(--teal);
+    letter-spacing:.02em;margin-bottom:12px;text-align:center;line-height:1.3}
+  .tabs{display:flex;gap:6px}
+  .tab{flex:1;background:none;border:none;color:var(--txt-faint);font-family:inherit;
+    font-size:13.5px;font-weight:700;padding:11px 8px;cursor:pointer;position:relative;
+    border-radius:9px 9px 0 0;transition:color .2s,background .2s;line-height:1.2}
+  .tab small{display:block;font-size:10.5px;font-weight:600;opacity:.7;margin-top:2px}
+  .tab.active{color:var(--teal);background:var(--bg)}
+  .tab.active::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;background:var(--teal)}
+
+  /* Conteneur swipe horizontal */
+  .pager{flex:1;display:flex;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;
+    -webkit-overflow-scrolling:touch;scrollbar-width:none}
+  .pager::-webkit-scrollbar{display:none}
+  .page{flex:none;width:100%;height:100%;overflow-y:auto;scroll-snap-align:start;
+    -webkit-overflow-scrolling:touch}
+
+  /* Bannière en tête de chaque page */
+  .part-banner{background:linear-gradient(135deg,#0d4f4a,#16243a);padding:24px 22px;
+    border-bottom:1px solid var(--line);position:relative;overflow:hidden}
+  .part-banner::after{content:"";position:absolute;right:-30px;bottom:-50px;width:140px;height:140px;
+    border:2px solid rgba(45,212,191,.12);border-radius:50%}
+  .part-label{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;
+    color:#0b1220;background:var(--teal);padding:3px 12px;border-radius:999px;margin-bottom:11px}
+  .part-title{font-size:22px;font-weight:800;line-height:1.2;letter-spacing:-.01em}
+  .part-desc{color:var(--txt-dim);font-size:13.5px;margin-top:8px;max-width:92%}
+  .swipe-hint{font-size:11.5px;color:var(--teal);margin-top:14px;display:flex;align-items:center;gap:6px;font-weight:600}
+
+  /* Sommaire dans la page */
+  nav{padding:18px 22px;background:var(--bg2);border-bottom:1px solid var(--line)}
+  nav .nav-t{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--txt-faint);margin-bottom:10px}
+  nav ol{margin:0;padding:0;list-style:none;counter-reset:toc}
+  nav li{counter-increment:toc;margin-bottom:1px}
+  nav a{display:flex;gap:11px;align-items:baseline;padding:8px 9px;border-radius:8px;
+    text-decoration:none;color:var(--txt);font-size:14px;transition:background .15s}
+  nav a:active{background:var(--card)}
+  nav a::before{content:counter(toc,decimal-leading-zero);font-size:11.5px;font-weight:700;
+    color:var(--teal);flex:none;font-variant-numeric:tabular-nums}
+
+  .body-wrap{padding:8px 22px 60px}
+
+  section{padding:26px 0;border-bottom:1px solid var(--line)}
+  section:last-of-type{border-bottom:none}
+  .sec-num{font-size:12px;font-weight:700;letter-spacing:.1em;color:var(--teal);
+    font-variant-numeric:tabular-nums;margin-bottom:8px}
+  h2{margin:0 0 14px;font-size:19px;font-weight:750;line-height:1.25;letter-spacing:-.01em}
+  p{margin:0 0 12px;color:var(--txt);font-size:15px}
+  p:last-child{margin-bottom:0}
+  b,strong{color:var(--hi);font-weight:650}
+
+  .measure{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--teal);
+    border-radius:10px;padding:13px 15px;margin:13px 0}
+  .measure .ml{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--teal);margin-bottom:9px}
+  .mrow{display:flex;gap:11px;align-items:flex-start;padding:7px 0;border-top:1px solid var(--line)}
+  .mrow:first-of-type{border-top:none}
+  .mval{font-weight:800;font-size:13.5px;font-variant-numeric:tabular-nums;flex:none;
+    min-width:90px;color:var(--txt)}
+  .mval.ok{color:var(--green)} .mval.bad{color:var(--red)} .mval.warn{color:var(--amber)}
+  .mdesc{font-size:13px;color:var(--txt-dim);line-height:1.45}
+
+  .warn-box{background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.3);
+    border-radius:10px;padding:12px 14px;margin:13px 0;font-size:13.5px;color:#fde68a}
+  .warn-box b{color:#fcd34d}
+  .tip{background:rgba(45,212,191,.07);border:1px solid rgba(45,212,191,.22);
+    border-radius:10px;padding:12px 14px;margin:13px 0;font-size:13.5px;color:#a7f3e4}
+  .tip b{color:var(--teal)}
+
+  ul.clean{margin:9px 0;padding:0;list-style:none}
+  ul.clean li{position:relative;padding-left:19px;margin-bottom:8px;font-size:14.5px;color:var(--txt-dim)}
+  ul.clean li::before{content:"";position:absolute;left:4px;top:9px;width:6px;height:6px;
+    border-radius:50%;background:var(--teal)}
+  ul.clean li b{color:var(--hi)}
+
+  .led{display:inline-flex;align-items:center;gap:7px;font-weight:650;color:var(--txt)}
+  .dot{width:11px;height:11px;border-radius:50%;flex:none;box-shadow:0 0 8px currentColor}
+  .dot.g{background:var(--green);color:var(--green)}
+  .dot.r{background:var(--red);color:var(--red)}
+  .dot.o{background:#475569;color:transparent;box-shadow:none;border:1px solid #64748b}
+
+  .bus-diagram{background:var(--card);border:1px solid var(--line);border-radius:12px;
+    padding:16px 14px;margin:15px 0;font-size:13px}
+  .bus-line{display:flex;align-items:center;gap:7px;margin:9px 0;flex-wrap:wrap}
+  .node{background:var(--card2);border:1px solid var(--teal);color:var(--teal);
+    font-weight:700;font-size:12px;padding:5px 9px;border-radius:7px;flex:none}
+  .term{background:rgba(251,191,36,.15);border:1px solid var(--amber);color:#fcd34d;
+    font-weight:700;font-size:11px;padding:4px 7px;border-radius:6px}
+  .wire{flex:1;height:2px;background:linear-gradient(90deg,var(--teal),var(--teal-d));min-width:12px;opacity:.5}
+  .bus-cap{color:var(--txt-faint);font-size:12px;margin-top:6px;text-align:center}
+
+  footer{padding:24px 22px 30px;text-align:center;color:var(--txt-faint);font-size:12.5px;line-height:1.7}
+  footer .src{color:var(--txt-dim);font-weight:600}
+</style>
+</head>
+<body>
+
+<div class="tabbar">
+  <div class="doc-title">Électronique du DP1500i</div>
+  <div class="tabs">
+    <button class="tab active" id="tab0" onclick="goPage(0)">Partie 1<small>Capteurs & schémas</small></button>
+    <button class="tab" id="tab1" onclick="goPage(1)">Partie 2<small>Diagnostic CAN bus</small></button>
+  </div>
+</div>
+
+<div class="pager" id="pager">
+
+  <!-- ============ PAGE 1 ============ -->
+  <div class="page" id="page0">
+    <div class="part-banner">
+      <div class="part-label">Partie 1</div>
+      <div class="part-title">Lire les capteurs & les schémas</div>
+      <div class="part-desc">Les bases pour décoder n'importe quel repère sur le DP1500i.</div>
+      <div class="swipe-hint">Balaye vers la gauche pour la Partie 2 &nbsp;→</div>
+    </div>
+    <nav>
+      <div class="nav-t">Sommaire — Partie 1</div>
+      <ol>
+      <li><a href="#p1s1" onclick="return jump(this)">Pourquoi des codes au lieu de noms</a></li>
+      <li><a href="#p1s2" onclick="return jump(this)">La règle des lettres (la clé)</a></li>
+      <li><a href="#p1s3" onclick="return jump(this)">La dernière lettre = la mesure</a></li>
+      <li><a href="#p1s4" onclick="return jump(this)">Les paires A et B</a></li>
+      <li><a href="#p1s5" onclick="return jump(this)">Lire une valeur à l'écran</a></li>
+      <li><a href="#p1s6" onclick="return jump(this)">Suivre un schéma</a></li>
+      <li><a href="#p1s7" onclick="return jump(this)">L'écran CAN Bus et les croix rouges (DP1500i)</a></li>
+      <li><a href="#p1s8" onclick="return jump(this)">La méthode qui marche à tous les coups</a></li>
+      </ol>
+    </nav>
+    <div class="body-wrap">
+<section id="p1s1">
+  <div class="sec-num">01</div>
+  <h2>Pourquoi des codes au lieu de noms</h2>
+  <p>Chaque capteur et chaque valve a un <b>code court</b> au lieu d'un nom long. Au lieu de « capteur de pression du stabilisateur », on écrit <b>B125P</b>.</p>
+  <p>Avantage : c'est le <b>même code partout</b> — à l'écran, sur le schéma électrique, et sur l'étiquette du composant sur la machine. Si tu sais lire le code, tu retrouves le composant partout.</p>
+</section>
+<section id="p1s2">
+  <div class="sec-num">02</div>
+  <h2>La règle des lettres (la clé)</h2>
+  <p>La <b>première lettre</b> donne le TYPE de composant :</p>
+  <ul class="clean">
+    <li><b>B</b> = capteur (mesure une grandeur)</li>
+    <li><b>Y</b> = valve / solénoïde (actionneur)</li>
+    <li><b>S</b> = switch / interrupteur</li>
+    <li><b>K</b> = relais &nbsp;·&nbsp; <b>F</b> = fusible</li>
+    <li><b>R</b> = résistance &nbsp;·&nbsp; <b>M</b> = moteur &nbsp;·&nbsp; <b>H</b> = voyant/alarme</li>
+  </ul>
+  <p>Dès que tu vois le code, tu sais déjà à quoi tu as affaire : B = je vais mesurer un signal ; Y = je vais vérifier une commande et une bobine ; K = un relais à tester ; F = un fusible à contrôler.</p>
+</section>
+<section id="p1s3">
+  <div class="sec-num">03</div>
+  <h2>La dernière lettre = la mesure</h2>
+  <p>Pour les capteurs (B), la dernière lettre dit ce qu'il mesure : <b>P</b> = pression, <b>T</b> = température, <b>L</b> = niveau.</p>
+  <div class="measure">
+    <div class="ml">Exemples réels</div>
+    <div class="mrow"><span class="mval">B125P</span><span class="mdesc">capteur de <b>pression</b> stabilisateur</span></div>
+    <div class="mrow"><span class="mval">B920T</span><span class="mdesc">capteur de <b>température</b> huile hydraulique</span></div>
+    <div class="mrow"><span class="mval">B983L</span><span class="mdesc">capteur de <b>niveau</b> du réservoir</span></div>
+    <div class="mrow"><span class="mval">B240T</span><span class="mdesc">capteur de <b>température</b> compresseur</span></div>
+  </div>
+  <p>En un coup d'œil, B920T se lit : « capteur (B) n°920 de température (T) ».</p>
+</section>
+<section id="p1s4">
+  <div class="sec-num">04</div>
+  <h2>Les paires A et B</h2>
+  <p>Beaucoup de valves vont par paire A/B = les <b>deux sens</b> d'un mouvement :</p>
+  <ul class="clean">
+    <li><b>Y3A</b> = feed forward &nbsp;/&nbsp; <b>Y3B</b> = feed backward</li>
+    <li><b>Y74A</b> = retainer open &nbsp;/&nbsp; <b>Y74B</b> = retainer close</li>
+    <li><b>Y5A</b> = drilling direction &nbsp;/&nbsp; <b>Y5B</b> = uncoupling</li>
+  </ul>
+  <p>Quand un seul sens ne marche pas, c'est souvent la valve A <b>ou</b> B de la paire — pas tout le circuit. Ça cible directement la recherche.</p>
+</section>
+<section id="p1s5">
+  <div class="sec-num">05</div>
+  <h2>Lire une valeur à l'écran</h2>
+  <p>Pour un <b>capteur</b> : la valeur est ce qu'il mesure (bar, °C, %). Figée à 0 ou absurde → capteur ou câble en cause.</p>
+  <p>Pour une <b>valve</b> : la valeur est le <b>courant</b> envoyé (mA). 0 mA = pas commandée ; valeur stable = elle reçoit bien l'ordre.</p>
+  <div class="tip"><b>Ce détail est puissant :</b> si tu commandes un mouvement et que le mA de la valve reste à 0, le problème est AVANT la valve (commande, module). Si le mA est bon mais rien ne bouge, le problème est la valve ou l'hydraulique.</div>
+</section>
+<section id="p1s6">
+  <div class="sec-num">06</div>
+  <h2>Suivre un schéma</h2>
+  <p>Un schéma relie les composants par des fils <b>numérotés</b> (ex : câble 170) avec leur section.</p>
+  <p>Pour une panne : pars du composant en défaut, trouve son code sur le schéma, remonte le fil jusqu'à son module ou son fusible.</p>
+  <p>Les <b>junction boxes</b> (MRJB, DMJB, et les boîtiers du boom) regroupent les fils : ce sont des points de mesure pratiques entre le module et le composant. Avec le schéma de câblage, tu retrouves le numéro du fil et tu remontes la chaîne.</p>
+</section>
+<section id="p1s7">
+  <div class="sec-num">07</div>
+  <h2>L'écran CAN Bus et les croix rouges (DP1500i)</h2>
+  <p>L'écran CAN Bus Layout montre tous les modules et capteurs du DP1500i reliés par le réseau, avec la charge de chaque bus.</p>
+  <p>Une <b>croix rouge ✗</b> = élément en défaut ou muet. C'est ton point de départ : elle te dit QUEL composant chercher.</p>
+  <p>Exemple : SRDP en croix rouge → la rotation ne se lock pas → solution bypass. La croix rouge dit QUOI, la règle des codes dit le TYPE, le multimètre confirme OÙ. (Le diagnostic CAN complet est en Partie 2.)</p>
+</section>
+<section id="p1s8">
+  <div class="sec-num">08</div>
+  <h2>La méthode qui marche à tous les coups</h2>
+  <p>Que ce soit un capteur, une valve ou un module, la démarche reste toujours la même sur le DP1500i :</p>
+  <ul class="clean">
+    <li><b>Identifier le repère</b> en défaut (à l'écran : valeur figée, croix rouge, mA à 0).</li>
+    <li><b>Trouver sa fonction</b> grâce au code (la règle des lettres).</li>
+    <li><b>Suivre le câble</b> sur le schéma jusqu'au module ou au fusible.</li>
+    <li><b>Tester</b> au point d'accès (junction box) et comparer à la valeur normale.</li>
+  </ul>
+  <p>C'est cette méthode, pas le fait de connaître la machine par cœur, qui fait le bon dépanneur. Un technicien qui applique ces 4 étapes dans l'ordre finit toujours par trouver. La Partie 2 applique exactement cette logique au réseau CAN bus.</p>
+</section>
+
+    </div>
+    <footer>
+      <div class="src">Cours de formation — Électronique du DP1500i</div>
+      Maintenance HME-Drilling · Préparé par Gora Fall · Endeavour Mining
+    </footer>
+  </div>
+
+  <!-- ============ PAGE 2 ============ -->
+  <div class="page" id="page1">
+    <div class="part-banner">
+      <div class="part-label">Partie 2</div>
+      <div class="part-title">Diagnostic CAN bus & démarrage</div>
+      <div class="part-desc">Tester le réseau en profondeur : mesures, RLU, LED, pannes intermittentes.</div>
+      <div class="swipe-hint">←&nbsp; Balaye vers la droite pour revenir à la Partie 1</div>
+    </div>
+    <nav>
+      <div class="nav-t">Sommaire — Partie 2</div>
+      <ol>
+      <li><a href="#s1" onclick="return jump(this)">C'est quoi un bus CAN ?</a></li>
+      <li><a href="#s2" onclick="return jump(this)">Le Backbone (CAN BB) : l'épine dorsale</a></li>
+      <li><a href="#s3" onclick="return jump(this)">Le RLU : rôle, LED, et test segment par segment</a></li>
+      <li><a href="#s3b" onclick="return jump(this)">Récupérer les logs du RLU (pannes rares / intermittentes)</a></li>
+      <li><a href="#s4" onclick="return jump(this)">Avant de mesurer : lire l'écran et préparer</a></li>
+      <li><a href="#s5" onclick="return jump(this)">Test n°1 : mesure de résistance (machine ÉTEINTE)</a></li>
+      <li><a href="#s6" onclick="return jump(this)">Test n°2 : mesure de tension (machine ALLUMÉE)</a></li>
+      <li><a href="#s7" onclick="return jump(this)">Lire les défauts de câblage</a></li>
+      <li><a href="#s8" onclick="return jump(this)">Vérifier l'alimentation d'un module (VS)</a></li>
+      <li><a href="#s9" onclick="return jump(this)">Lire les LED des modules PLC (très puissant)</a></li>
+      <li><a href="#s10" onclick="return jump(this)">La panne intermittente : la croix qui apparaît et disparaît</a></li>
+      <li><a href="#s11" onclick="return jump(this)">Le bouton de démarrage ne s'allume pas</a></li>
+      <li><a href="#s12" onclick="return jump(this)">Méthode résumée de diagnostic CAN</a></li>
+      </ol>
+    </nav>
+    <div class="body-wrap">
+<section id="s1">
+  <div class="sec-num">01</div>
+  <h2>C'est quoi un bus CAN ?</h2>
+  <p>Un bus CAN est un <b>réseau</b> : plusieurs nœuds (modules) reliés par un seul câble à 2 fils. Chaque nœud contrôle ses capteurs et ses valves, et « parle » aux autres en faisant varier la tension sur les 2 fils : <b>CAN_HI</b> et <b>CAN_LO</b>.</p>
+  <p>Le même signal circule sur les deux fils, mais en miroir : quand CAN_HI monte, CAN_LO descend. C'est ce qui rend le CAN très résistant aux parasites électriques.</p>
+  <div class="bus-diagram">
+    <div class="bus-line">
+      <span class="term">120 Ω</span>
+      <span class="wire"></span>
+      <span class="node">SM</span>
+      <span class="wire"></span>
+      <span class="node">DM</span>
+      <span class="wire"></span>
+      <span class="node">FCC</span>
+      <span class="wire"></span>
+      <span class="term">120 Ω</span>
+    </div>
+    <div class="bus-cap">Un bus = des nœuds reliés par 2 fils, avec une résistance de 120 Ω à chaque bout</div>
+  </div>
+  <p>Règle absolue : <b>aux deux extrémités du bus, une résistance de terminaison de 120 Ω.</b> Ces deux résistances sont la clé de tout le diagnostic.</p>
+  <p>Beaucoup de composants CAN doivent être <b>initialisés</b> avant usage : on les connecte au System Master (SM) avec le câble approprié. Un module neuf non initialisé ne communiquera pas.</p>
+</section>
+<section id="s2">
+  <div class="sec-num">02</div>
+  <h2>Le Backbone (CAN BB) : l'épine dorsale</h2>
+  <p>Le DP1500i a <b>3 bus CAN séparés</b> : <b>CAN BB (Backbone)</b>, <b>CAN HMI</b>, et <b>CAN J1939</b> (moteur). Ils sont indépendants — un défaut sur l'un ne touche pas forcément les autres.</p>
+  <ul class="clean">
+    <li><b>Backbone (BB)</b> — l'épine dorsale : relie les contrôleurs principaux SM (System Master), DM (Drilling Master), FCC et RCC, avec un terminateur à chaque bout.</li>
+    <li><b>CAN HMI</b> — relie l'interface : l'écran (HMI Master) et les panneaux de commande.</li>
+    <li><b>CAN J1939</b> — dédié au moteur diesel (ECM ↔ contrôleurs). J1939 est le standard mondial des moteurs.</li>
+  </ul>
+  <p>À l'écran CAN Bus Layout, chaque bus affiche son état (OK) et sa charge : HMI ~30%, Backbone ~21%, J1939 ~13%. Plus la charge est élevée, plus il y a de trafic — c'est normal.</p>
+  <div class="tip"><b>Pourquoi ça compte :</b> le Backbone étant l'épine dorsale, s'il tombe, plusieurs fonctions majeures tombent ensemble. Si tu vois DM, FCC et RCC muets d'un coup → pense au câble du Backbone ou aux terminateurs, pas à chaque module séparément.</div>
+</section>
+<section id="s3">
+  <div class="sec-num">03</div>
+  <h2>Le RLU : rôle, LED, et test segment par segment</h2>
+  <p>Le <b>RLU (Repeater data Logger Unit)</b> est un composant clé du Backbone. Il a deux rôles précis :</p>
+  <ul class="clean">
+    <li><b>Répéteur</b> : il <b>renforce les signaux</b> du bus et améliore sa tolérance aux défauts (fault tolerance). Il « rafraîchit » le signal pour qu'il porte plus loin sur un long Backbone.</li>
+    <li><b>Enregistreur (logger)</b> : il <b>enregistre le trafic du bus</b> pour analyser les pannes après coup. C'est précieux pour les défauts rares ou intermittents qu'on n'arrive pas à prendre sur le fait.</li>
+  </ul>
+  <div class="warn-box"><b>⚠️ Point capital pour les mesures :</b> le RLU <b>divise le Backbone en DEUX bus séparés</b> du point de vue de la résistance. Quand tu mesures CAN_HI/CAN_LO sur le Backbone, tu ne mesures qu'<b>un seul côté</b> à la fois. Si tu l'ignores, tes valeurs paraîtront fausses.</div>
+
+  <h2 style="font-size:17px;margin-top:24px">Est-ce qu'on peut s'en servir pour isoler le défaut côté par côté&nbsp;?</h2>
+  <p><b>Oui — et c'est même son grand intérêt en diagnostic.</b> Le RLU a deux interfaces, <b>CAN1</b> et <b>CAN2</b>, chacune reliée à un côté du Backbone, et <b>chacune a sa propre LED tricolore</b>. Chaque LED indique l'état de SON côté du bus. Ça te permet deux choses :</p>
+  <ul class="clean">
+    <li><b>Localiser le côté en défaut par les LED</b> : si CAN1 clignote rouge (erreurs) et CAN2 clignote vert (normal), tu sais que le problème est du <b>côté CAN1</b> — sans rien démonter. Tu as divisé la zone de recherche par deux instantanément.</li>
+    <li><b>Mesurer chaque moitié séparément</b> : comme le RLU coupe le Backbone en deux pour la résistance, tu mesures les ~60 Ω de chaque côté indépendamment. Un côté à 60 Ω (sain) et l'autre à 120 Ω ou OL (coupé) te dit dans quelle moitié chercher.</li>
+  </ul>
+  <div class="measure">
+    <div class="ml">LED CAN1 / CAN2 du RLU — fonctionnement normal</div>
+    <div class="mrow"><span class="mval"><span class="led"><span class="dot g"></span>Vert</span></span><span class="mdesc">Clignote à une <b>fréquence proportionnelle à la charge</b> du bus de ce côté (plus de trafic = clignote plus vite). 1 flash toutes les 2 s = pas de trafic mais appareil opérationnel.</span></div>
+    <div class="mrow"><span class="mval"><span class="led"><span class="dot" style="background:var(--amber);color:var(--amber)"></span>Ambre</span></span><span class="mdesc">Clignote 1 fois / 2 s = <b>l'enregistrement (logging)</b> du trafic est activé sur ce côté.</span></div>
+    <div class="mrow"><span class="mval"><span class="led"><span class="dot r"></span>Rouge</span></span><span class="mdesc">Clignote à une fréquence <b>proportionnelle au taux d'erreurs</b> de ce côté. Plus ça clignote vite, plus il y a d'erreurs sur ce segment.</span></div>
+  </div>
+  <p>À la mise sous tension, le RLU fait une <b>séquence de test des LED</b> (rouge/vert qui défilent, 0,5 s par phase) — c'est normal, ça confirme juste qu'il démarre.</p>
+  <div class="tip"><b>Bon à savoir :</b> la machine <b>peut fonctionner normalement sans le RLU</b>. On peut le débrancher (connecteurs ouverts) et reconnecter les câbles entre eux sans lui — utile pour récupérer ses logs au bureau, ou pour écarter le RLU lui-même d'un diagnostic. Le RLU n'a besoin <b>ni d'initialisation ni de calibrage</b> au remplacement.</div>
+  <p>Le CAN HMI et le CAN J1939 n'ont <b>pas</b> de RLU — seul le Backbone est concerné par tout ce qui précède.</p>
+</section>
+<section id="s3b">
+  <div class="sec-num">03b</div>
+  <h2>Récupérer les logs du RLU (pannes rares / intermittentes)</h2>
+  <p>Quand une panne est trop rare pour la prendre au multimètre, les <b>logs du RLU</b> sont l'arme ultime : ils enregistrent ce qui s'est passé sur le bus au moment du défaut.</p>
+  <p><b>Sur la machine, juste après l'incident :</b></p>
+  <ul class="clean">
+    <li>Arrête le travail <b>immédiatement</b> après l'événement et coupe la machine.</li>
+    <li>Éteins le système de contrôle, ouvre l'interrupteur principal.</li>
+    <li>Débranche le RLU du bus (ouvre les connecteurs), puis reconnecte les câbles entre eux <b>sans</b> le RLU. La machine peut continuer à travailler normalement.</li>
+  </ul>
+  <p><b>Au bureau, pour lire les logs :</b> il faut le câble de mesure CAN (BG00277882) pour alimenter le RLU, un câble Ethernet (55152667) pour le relier à un PC, et une alimentation 8–36 VDC. On connecte le RLU au PC et à l'alimentation <b>sans brancher les fils CAN</b>, puis on récupère les enregistrements.</p>
+  <div class="tip"><b>Quand utiliser les logs :</b> typiquement pour la croix qui apparaît/disparaît (section 10). Si l'inspection physique ne donne rien, on laisse le RLU enregistrer, on attend que la panne se reproduise, puis on analyse le log pour voir quel nœud a fauté et quand.</div>
+</section>
+<section id="s4">
+  <div class="sec-num">04</div>
+  <h2>Avant de mesurer : lire l'écran et préparer</h2>
+  <p><b>Règle de base : tout défaut CAN doit d'abord être identifié à l'écran.</b> Le système t'indique si un nœud est en défaut ou éteint. Ne sors le multimètre qu'après.</p>
+  <p>Matériel : un <b>multimètre</b> et les <b>schémas de câblage CAN</b> de la machine (indispensables pour savoir où mesurer). Il existe des câbles de mesure dédiés (BG00277882 connecteurs Deutsch, 55195967 connecteurs M12).</p>
+  <ul class="clean">
+    <li>Le multimètre <b>détecte bien</b> : interruptions, faux contacts, courts-circuits.</li>
+    <li>Le multimètre <b>ne détecte pas</b> : un capteur CAN défectueux, des signaux manquants, des erreurs au niveau bit. Pour ça → l'écran et le diagnostic logiciel.</li>
+  </ul>
+  <p>Les 3 bus se mesurent <b>séparément</b> : même méthode, mais un par un (BB, HMI, J1939).</p>
+</section>
+<section id="s5">
+  <div class="sec-num">05</div>
+  <h2>Test n°1 : mesure de résistance (machine ÉTEINTE)</h2>
+  <div class="warn-box"><b>⚠️ L'alimentation DOIT être coupée. Clé de contact sur 0.</b></div>
+  <p>Mesure la résistance entre <b>CAN_HI et CAN_LO</b>. Les deux terminateurs de 120 Ω en parallèle donnent normalement ~60 Ω. Voici comment interpréter la valeur :</p>
+  <div class="measure">
+    <div class="ml">Résistance CAN_HI ↔ CAN_LO</div>
+    <div class="mrow"><span class="mval ok">≈ 60 Ω (±5)</span><span class="mdesc">Bus, connecteurs et terminateurs <b>intacts</b>. Le problème est ailleurs (un module précis, son alim).</span></div>
+    <div class="mrow"><span class="mval bad">&lt; 50 Ω</span><span class="mdesc"><b>Court-circuit</b> sur le bus.</span></div>
+    <div class="mrow"><span class="mval warn">&gt; 100 Ω</span><span class="mdesc">Une extrémité <b>interrompue</b>, ou un terminateur défectueux.</span></div>
+    <div class="mrow"><span class="mval bad">40–50 kΩ</span><span class="mdesc">Bus coupé en <b>au moins 2 points</b>, ou les deux terminateurs absents/défectueux.</span></div>
+  </div>
+  <p>Note : chaque nœud connecté fait légèrement baisser la valeur. Et rappelle-toi le RLU qui coupe le Backbone en deux.</p>
+</section>
+<section id="s6">
+  <div class="sec-num">06</div>
+  <h2>Test n°2 : mesure de tension (machine ALLUMÉE)</h2>
+  <p>Cette fois, <b>le système doit être SOUS tension</b> : interrupteur principal sur I, clé de contact sur I, le système démarre.</p>
+  <p>Mesure la tension entre <b>CAN_HI et GND (masse)</b>, puis entre <b>CAN_LO et GND</b>. Note les résultats.</p>
+  <div class="measure">
+    <div class="ml">Tension CAN_HI–GND et CAN_LO–GND</div>
+    <div class="mrow"><span class="mval ok">2,5 V (±0,2)</span><span class="mdesc">Bus <b>intact</b>. Au repos, les deux fils sont à ~2,5 V.</span></div>
+    <div class="mrow"><span class="mval bad">&lt; 1 V ou &gt; 4 V</span><span class="mdesc"><b>Court-circuit</b> sur le bus.</span></div>
+  </div>
+  <p>Quand le bus communique (chargé) : <b>CAN_HI monte au-dessus</b> de 2,5 V, <b>CAN_LO descend en-dessous</b> de 2,5 V. Plus la charge est forte, plus l'écart est grand — c'est le signe que ça communique bien.</p>
+  <p>Si les deux fils restent figés identiques, ou collés à 0 V ou 24 V → câble en défaut.</p>
+</section>
+<section id="s7">
+  <div class="sec-num">07</div>
+  <h2>Lire les défauts de câblage</h2>
+  <p>Chaque type de défaut a une signature exacte. Apprends-les, c'est ce qui fait gagner des heures :</p>
+  <div class="measure">
+    <div class="ml">Signatures de défaut</div>
+    <div class="mrow"><span class="mval">Fil↔masse</span><span class="mdesc">Court-circuit CAN-GND : CAN_LO ou CAN_HI <b>près de 0 V</b> en permanence ; résistance HI-LO toujours ~60 Ω.</span></div>
+    <div class="mrow"><span class="mval">Fil↔24V</span><span class="mdesc">Court-circuit CAN-alim : CAN_LO ou CAN_HI <b>près de la tension VS</b> ; résistance ~60 Ω.</span></div>
+    <div class="mrow"><span class="mval">Fil↔Fil</span><span class="mdesc">Court entre les deux fils : tension de l'un ou l'autre <b>près de 0 V</b>.</span></div>
+  </div>
+  <div class="tip"><b>Le piège à comprendre :</b> la résistance peut rester normale (~60 Ω) alors qu'il y a un court à la masse ou à l'alim. C'est pour ça qu'on fait LES DEUX tests (résistance ET tension). L'un sans l'autre peut tromper.</div>
+</section>
+<section id="s8">
+  <div class="sec-num">08</div>
+  <h2>Vérifier l'alimentation d'un module (VS)</h2>
+  <p>Souvent, un module apparaît « muet » sur le bus alors que le bus est sain — en fait il n'est juste <b>pas alimenté</b>.</p>
+  <p>À retenir : pour la plupart des modules, <b>une LED d'alimentation allumée = la tension d'alimentation est bonne.</b></p>
+  <div class="measure">
+    <div class="ml">Tension d'alimentation VS–GND</div>
+    <div class="mrow"><span class="mval ok">≈ 24 VDC</span><span class="mdesc">Alimentation <b>normale</b> du nœud.</span></div>
+    <div class="mrow"><span class="mval bad">0 V</span><span class="mdesc">Point d'<b>interruption</b> de l'alimentation trouvé. Remonte le câble (fusible, connecteur, masse).</span></div>
+  </div>
+  <p>Si un ou plusieurs modules sont éteints (LED éteinte) : mesure VS–GND sur ce nœud, <b>un module à la fois</b>. Avant d'accuser le bus : vérifie que le module muet est bien alimenté.</p>
+</section>
+<section id="s9">
+  <div class="sec-num">09</div>
+  <h2>Lire les LED des modules PLC (très puissant)</h2>
+  <p>Chaque module PLC a une LED (côté ST) qui indique l'état du Backbone. Voici le code couleur :</p>
+  <div class="measure">
+    <div class="ml">LED verte (état CANOpen)</div>
+    <div class="mrow"><span class="mval"><span class="led"><span class="dot g"></span>Fixe</span></span><span class="mdesc">État opérationnel = <b>OK</b>, tout va bien.</span></div>
+    <div class="mrow"><span class="mval"><span class="led"><span class="dot g"></span>Clignote</span></span><span class="mdesc">État « pré-opérationnel ». Attends le démarrage. Si ça reste → connexion coupée ou mauvais logiciel.</span></div>
+    <div class="mrow"><span class="mval"><span class="led"><span class="dot g"></span>1 flash</span></span><span class="mdesc">État « stoppé ». Voir l'écran (connexion coupée ou mauvais logiciel).</span></div>
+  </div>
+  <div class="measure">
+    <div class="ml">LED rouge (erreur)</div>
+    <div class="mrow"><span class="mval"><span class="led"><span class="dot r"></span>Fixe</span></span><span class="mdesc">Messages CAN corrompus (<b>bus-off</b>). Connexion coupée, ou mauvais débit (baud rate) d'un composant.</span></div>
+    <div class="mrow"><span class="mval"><span class="led"><span class="dot r"></span>1 flash</span></span><span class="mdesc">Messages corrompus (warning). Mêmes causes.</span></div>
+    <div class="mrow"><span class="mval"><span class="led"><span class="dot o"></span>Éteinte</span></span><span class="mdesc">Pas d'erreur = <b>OK</b>.</span></div>
+  </div>
+  <p>Devant un module, sa LED te dit déjà énormément avant le multimètre : <b>verte fixe = bon</b> ; <b>rouge = problème CAN</b> ; <b>éteinte côté alim = pas alimenté</b>.</p>
+</section>
+<section id="s10">
+  <div class="sec-num">10</div>
+  <h2>La panne intermittente : la croix qui apparaît et disparaît</h2>
+  <p>C'est le défaut le plus fourbe : un nœud qui passe en croix rouge puis revient. Sa signature est presque toujours un <b>contact qui varie</b>.</p>
+  <p>Causes typiques, par ordre : connecteur CAN mal serti ou oxydé, câble qui frotte/se plie (zones de flexion : flèche, articulations), faux contact d'alimentation (la fameuse cosse de batterie fissurée), masse desserrée.</p>
+  <div class="tip"><b>Méthode :</b>
+    <ul class="clean" style="margin-top:8px">
+      <li>Note <b>quel nœud</b> tombe (l'écran l'affiche).</li>
+      <li><b>Bouge à la main</b> ses connecteurs et son câble, moteur tournant — si la croix apparaît quand tu bouges, tu as trouvé la zone.</li>
+      <li>Mesure la tension VS–GND de ce nœud <b>en bougeant le câble</b> : si elle chute par instants → alim intermittente.</li>
+      <li>Mesure la résistance du bus à froid : un terminateur qui se déconnecte par vibration fait passer de <b>60 à 120 Ω</b>.</li>
+    </ul>
+  </div>
+  <p>La LED rouge « bus-off » qui apparaît et repart confirme des messages corrompus intermittents → quasi toujours un câble/connecteur, pas le module.</p>
+</section>
+<section id="s11">
+  <div class="sec-num">11</div>
+  <h2>Le bouton de démarrage ne s'allume pas</h2>
+  <p>Si le voyant du bouton de démarrage ne s'allume même pas, c'est un problème d'<b>alimentation ou de chaîne de validation</b>, en amont du démarrage moteur. Démarche du général au particulier :</p>
+  <ul class="clean">
+    <li><b>1) Batterie et coupe-batterie</b> : tension 24 V présente ? Cosses propres et serrées (un faux contact ici explique beaucoup) ?</li>
+    <li><b>2) Arrêts d'urgence</b> : un seul emergency stop enfoncé ou en défaut coupe toute la validation. Vérifie les circuits NC1/NC2 et le relais temporisé K10.</li>
+    <li><b>3) Le système démarre-t-il ?</b> L'écran s'allume-t-il ? Si l'écran est noir, le HMI Master n'est pas alimenté → pas de bouton actif.</li>
+    <li><b>4) Modules de base alimentés ?</b> Vérifie les LED d'alim (vert) de SM/FCC. Un FCC non alimenté = pas de validation de démarrage.</li>
+    <li><b>5) Côté moteur</b> (écran Engine) : relais K4 (start), K05 (start/stop), K15 (remote shutdown), K17 (cold start). Un K15 actif bloque le démarrage.</li>
+  </ul>
+  <p>Logique : le bouton ne s'allume que si l'alimentation, les sécurités et les modules de base sont OK. On remonte cette chaîne dans l'ordre.</p>
+</section>
+<section id="s12">
+  <div class="sec-num">12</div>
+  <h2>Méthode résumée de diagnostic CAN</h2>
+  <p>La marche complète, dans l'ordre, à appliquer à chaque panne réseau :</p>
+  <ul class="clean">
+    <li><b>1.</b> Lire l'écran (CAN Bus Layout / Modules) : quel bus, quel nœud, un seul ou tout un segment ?</li>
+    <li><b>2.</b> Regarder les LED des modules (verte fixe = OK, rouge = erreur CAN, éteinte = pas d'alim).</li>
+    <li><b>3.</b> Inspection physique : connecteurs, câbles aux flexions, masses, alimentation.</li>
+    <li><b>4.</b> Test résistance (machine éteinte) CAN_HI/CAN_LO : viser ~60 Ω. Penser au RLU sur le Backbone.</li>
+    <li><b>5.</b> Test tension (machine allumée) CAN_HI-GND et CAN_LO-GND : viser 2,5 V.</li>
+    <li><b>6.</b> Vérifier l'alim VS-GND (~24 V) des nœuds muets, un par un.</li>
+    <li><b>7.</b> Si segment entier mort : isoler par dichotomie (débrancher les nœuds un par un — un module en court fait tomber tout le bus).</li>
+  </ul>
+  <p>Toujours avec les schémas de câblage CAN en main — ils donnent les points de mesure exacts.</p>
+</section>
+
+    </div>
+    <footer>
+      <div class="src">Cours de formation — Diagnostic CAN bus DP1500i</div>
+      Maintenance HME-Drilling · Préparé par Gora Fall · Endeavour Mining
+    </footer>
+  </div>
+
+</div>
+
+<script>
+  var pager = document.getElementById('pager');
+  function goPage(i){
+    var pg = document.getElementById('page'+i);
+    pager.scrollTo({left: pg.offsetLeft, behavior:'smooth'});
+    setActive(i);
+  }
+  function setActive(i){
+    document.getElementById('tab0').classList.toggle('active', i===0);
+    document.getElementById('tab1').classList.toggle('active', i===1);
+  }
+  // Suivre le scroll horizontal pour mettre à jour l'onglet actif
+  var ticking=false;
+  pager.addEventListener('scroll', function(){
+    if(!ticking){
+      window.requestAnimationFrame(function(){
+        var i = Math.round(pager.scrollLeft / pager.clientWidth);
+        setActive(i);
+        ticking=false;
+      });
+      ticking=true;
+    }
+  });
+  // Liens du sommaire : aller à l'ancre dans la bonne page
+  function jump(a){
+    var id = a.getAttribute('href').slice(1);
+    var el = document.getElementById(id);
+    if(el){ el.scrollIntoView({behavior:'smooth', block:'start'}); }
+    return false;
+  }
+</script>
+
+</body>
+</html>
